@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { FormState } from "@/lib/forms";
 import { Field, FormMessage, Input, SubmitButton, Textarea } from "@/components/form";
 import { Alerte } from "@/components/ui";
+import { IconeEnvoyer, IconeEtincelle } from "@/components/icones";
 
 /** Bloc d'envoi d'un email au locataire (avec pièce jointe PDF générée côté serveur). */
 export function EnvoiEmail({
@@ -51,29 +52,37 @@ export function EnvoiEmail({
   }
 
   return (
-    <details open={ouvert} className="rounded-lg border border-slate-200">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-navy-900">{libelleBouton} à {destinataire}</summary>
-      <div className="space-y-4 border-t border-slate-100 px-4 py-4">
+    <details open={ouvert} className="group rounded-xl border border-slate-200 bg-white shadow-card">
+      <summary className="flex cursor-pointer items-center gap-3 px-5 py-4 text-sm font-bold text-navy-900">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cyan-100 text-cyan-900"><IconeEnvoyer taille={16} /></span>
+        <span className="flex-1">{libelleBouton} à {destinataire}</span>
+        <span className="text-xs font-medium text-slate-500 group-open:hidden">Ouvrir</span>
+      </summary>
+      <div className="flex flex-col gap-4 border-t border-slate-100 px-5 py-4">
         <FormMessage state={etat} />
         {actionIA && (
-          <form action={generer} className="space-y-2 rounded-md bg-navy-50/60 p-3">
+          <form action={generer} className="flex flex-col gap-2.5 rounded-lg border border-violet-200 bg-violet-50/40 p-3.5">
             <FormMessage state={etatIA} />
             <input type="hidden" name="objet" value={objet} />
             <input type="hidden" name="contexte" value={contexteIA ?? ""} />
-            <Field label="Assistant IA — consigne pour reformuler le message (facultatif)" name="instructions" hint={iaConfiguree ? "Ex. : ton plus chaleureux, rappeler le changement d'IBAN, message en 3 lignes" : "Assistant IA non configuré (ANTHROPIC_API_KEY)"}>
-              <Input name="instructions" disabled={!iaConfiguree} />
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-800"><IconeEtincelle taille={15} /></span>
+              <p className="text-sm font-bold text-navy-900">Adapter le message avec l'IA</p>
+            </div>
+            <Field label="Consigne (facultatif)" name="instructions" hint={iaConfiguree ? "Ex. : ton plus chaleureux, rappeler le changement d'IBAN, message en 3 lignes" : "Assistant IA non configuré (ANTHROPIC_API_KEY)"}>
+              <Input name="instructions" disabled={!iaConfiguree} placeholder="ex. Ton plus ferme, rappeler la date d'échéance" />
             </Field>
-            <SubmitButton variante="secondary" taille="sm" enCours="Rédaction…" disabled={!iaConfiguree}>Rédiger avec l'IA</SubmitButton>
+            <div><SubmitButton variante="secondary" taille="sm" enCours="Rédaction…" disabled={!iaConfiguree}>Rédiger avec l'IA</SubmitButton></div>
           </form>
         )}
-        <form action={envoyer} className="space-y-3">
+        <form action={envoyer} className="flex flex-col gap-3.5">
           <Field label="Objet" name="objet" requis>
             <Input name="objet" value={objet} onChange={(ev) => setObjet(ev.target.value)} required />
           </Field>
           <Field label="Message" name="corps" requis hint={`Pièce jointe : ${pieceJointe} (PDF)`}>
             <Textarea name="corps" rows={9} value={corps} onChange={(ev) => setCorps(ev.target.value)} required />
           </Field>
-          <SubmitButton variante="accent" enCours="Envoi en cours…">{libelleBouton}</SubmitButton>
+          <div><SubmitButton variante="accent" enCours="Envoi en cours…"><IconeEnvoyer taille={16} />{libelleBouton}</SubmitButton></div>
         </form>
       </div>
     </details>

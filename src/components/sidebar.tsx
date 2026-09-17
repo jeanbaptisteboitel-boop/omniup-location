@@ -1,99 +1,117 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { NavLink } from "./nav-link";
+import { MobileNav } from "./mobile-nav";
+import { Marque } from "./logomark";
+import {
+  IconeBail,
+  IconeBailleur,
+  IconeCalculatrice,
+  IconeDepenses,
+  IconeDocuments,
+  IconeEmprunts,
+  IconeEntites,
+  IconeEuro,
+  IconeIA,
+  IconeImmeuble,
+  IconeLocataires,
+  IconeLot,
+  IconeModeles,
+  IconeParametres,
+  IconeSynthese,
+  IconeTableauDeBord,
+} from "./icones";
 import { protectionActive } from "@/lib/session";
 import { seDeconnecter } from "@/actions/session";
 import { entiteCourante, listeEntites, multiEntitesActif } from "@/lib/entite";
 import { changerEntite } from "@/actions/entites";
 import { EntiteSwitcher } from "./entites/entite-switcher";
 
-const GROUPES: { titre: string | null; liens: { href: string; libelle: string }[] }[] = [
-  { titre: null, liens: [{ href: "/", libelle: "Tableau de bord" }] },
+type Lien = { href: string; libelle: string; icone: ReactNode };
+
+const GROUPES: { titre: string | null; liens: Lien[] }[] = [
+  { titre: null, liens: [{ href: "/", libelle: "Tableau de bord", icone: <IconeTableauDeBord /> }] },
   {
     titre: "Patrimoine",
     liens: [
-      { href: "/bailleurs", libelle: "Bailleurs" },
-      { href: "/immeubles", libelle: "Immeubles" },
-      { href: "/lots", libelle: "Lots" },
+      { href: "/bailleurs", libelle: "Bailleurs", icone: <IconeBailleur /> },
+      { href: "/immeubles", libelle: "Immeubles", icone: <IconeImmeuble /> },
+      { href: "/lots", libelle: "Lots", icone: <IconeLot /> },
     ],
   },
   {
     titre: "Location",
     liens: [
-      { href: "/locataires", libelle: "Locataires" },
-      { href: "/baux", libelle: "Baux" },
-      { href: "/loyers", libelle: "Loyers et quittances" },
-      { href: "/documents", libelle: "Documents" },
-      { href: "/modeles", libelle: "Modèles de documents" },
+      { href: "/locataires", libelle: "Locataires", icone: <IconeLocataires /> },
+      { href: "/baux", libelle: "Baux", icone: <IconeBail /> },
+      { href: "/loyers", libelle: "Loyers et quittances", icone: <IconeEuro /> },
+      { href: "/documents", libelle: "Documents", icone: <IconeDocuments /> },
+      { href: "/modeles", libelle: "Modèles de documents", icone: <IconeModeles /> },
     ],
   },
   {
     titre: "Comptabilité",
     liens: [
-      { href: "/depenses", libelle: "Dépenses" },
-      { href: "/emprunts", libelle: "Emprunts" },
-      { href: "/synthese", libelle: "Synthèse annuelle" },
+      { href: "/depenses", libelle: "Dépenses", icone: <IconeDepenses /> },
+      { href: "/emprunts", libelle: "Emprunts", icone: <IconeEmprunts /> },
+      { href: "/synthese", libelle: "Synthèse annuelle", icone: <IconeSynthese /> },
     ],
   },
   {
     titre: "Outils",
     liens: [
-      { href: "/outils", libelle: "Calculatrices" },
-      { href: "/assistant", libelle: "Assistant IA" },
+      { href: "/outils", libelle: "Calculatrices", icone: <IconeCalculatrice /> },
+      { href: "/assistant", libelle: "Assistant IA", icone: <IconeIA /> },
     ],
   },
 ];
 
-function Logo() {
-  return (
-    <Link href="/" className="flex items-center gap-3 px-3 py-2">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-cyan text-lg font-black text-navy-950">⏻</span>
-      <span className="leading-tight">
-        <span className="block text-base font-bold tracking-wide text-white">OMNIUP</span>
-        <span className="block text-xs uppercase tracking-widest text-brand-cyan">Location</span>
-      </span>
-    </Link>
-  );
-}
-
-function Menu({ multi }: { multi: boolean }) {
-  const groupes = [...GROUPES, { titre: null, liens: [...(multi ? [{ href: "/entites", libelle: "Entités" }] : []), { href: "/parametres", libelle: "Paramètres" }] }];
-  return (
-    <nav className="space-y-5">
-      {groupes.map((g, i) => (
-        <div key={i}>
-          {g.titre && <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-navy-300">{g.titre}</p>}
-          <ul className="space-y-0.5">
-            {g.liens.map((l) => (
-              <li key={l.href}>
-                <NavLink href={l.href}>{l.libelle}</NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </nav>
-  );
-}
-
-async function BlocEntite({ multi }: { multi: boolean }) {
-  const entite = await entiteCourante();
-  if (!multi) {
-    return (
-      <Link href="/parametres" className="block px-3 text-xs text-navy-200 hover:text-white" title="Nom de l'entité (modifiable dans Paramètres)">
-        {entite.nom}
-      </Link>
-    );
-  }
-  const entites = await listeEntites();
-  return <EntiteSwitcher entites={entites.map((e) => ({ id: e.id, nom: e.nom }))} couranteId={entite.id} action={changerEntite} />;
-}
-
-function Deconnexion({ className }: { className: string }) {
+function Deconnexion() {
   if (!protectionActive()) return null;
   return (
-    <form action={seDeconnecter} className={className}>
-      <button type="submit" className="text-[11px] text-navy-300 hover:text-white">Déconnexion</button>
+    <form action={seDeconnecter}>
+      <button type="submit" className="cursor-pointer py-1.5 text-[11px] text-navy-300 hover:text-white">Déconnexion</button>
     </form>
+  );
+}
+
+async function PanneauNav({ multi }: { multi: boolean }) {
+  const entite = await entiteCourante();
+  const entites = multi ? await listeEntites() : [];
+  const groupes = [...GROUPES, { titre: null, liens: [...(multi ? [{ href: "/entites", libelle: "Entités", icone: <IconeEntites /> }] : []), { href: "/parametres", libelle: "Paramètres", icone: <IconeParametres /> }] }];
+  return (
+    <div className="flex h-full min-h-screen w-[260px] flex-col bg-navy-900 px-3 py-4 text-white">
+      <Link href="/" className="flex items-center gap-3 px-2.5 py-1.5 text-white">
+        <Marque />
+      </Link>
+      {multi ? (
+        <EntiteSwitcher entites={entites.map((e) => ({ id: e.id, nom: e.nom }))} couranteId={entite.id} action={changerEntite} />
+      ) : (
+        <Link href="/parametres" className="mx-2.5 mt-3 block truncate text-xs text-navy-300 hover:text-white" title="Nom de l'entité (modifiable dans Paramètres)">
+          {entite.nom}
+        </Link>
+      )}
+      <nav className="mt-5 flex flex-1 flex-col gap-[18px] overflow-y-auto">
+        {groupes.map((g, i) => (
+          <div key={i}>
+            {g.titre && <p className="mb-1 px-2.5 text-[11px] font-bold uppercase tracking-[.12em] text-navy-300">{g.titre}</p>}
+            <ul className="flex flex-col gap-0.5">
+              {g.liens.map((l) => (
+                <li key={l.href}>
+                  <NavLink href={l.href} icone={l.icone}>
+                    {l.libelle}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+      <div className="mt-3 flex items-center justify-between border-t border-white/8 px-2.5 pt-2.5">
+        <p className="text-[11px] text-navy-300">Gestion locative · v0.3</p>
+        <Deconnexion />
+      </div>
+    </div>
   );
 }
 
@@ -101,30 +119,12 @@ export async function Sidebar() {
   const multi = await multiEntitesActif();
   return (
     <>
-      <aside className="hidden w-64 shrink-0 flex-col bg-navy-900 px-3 py-4 lg:flex lg:sticky lg:top-0 lg:h-screen">
-        <Logo />
-        <div className="mt-2">
-          <BlocEntite multi={multi} />
-        </div>
-        <div className="mt-5 flex-1 overflow-y-auto">
-          <Menu multi={multi} />
-        </div>
-        <div className="flex items-center justify-between px-3">
-          <p className="text-[11px] text-navy-300">Gestion locative · v0.3</p>
-          <Deconnexion className="" />
-        </div>
+      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 lg:block">
+        <PanneauNav multi={multi} />
       </aside>
-      <details className="bg-navy-900 px-3 py-2 lg:hidden">
-        <summary className="flex cursor-pointer items-center justify-between">
-          <Logo />
-          <span className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-white">Menu</span>
-        </summary>
-        <div className="space-y-4 pb-3 pt-2">
-          <BlocEntite multi={multi} />
-          <Menu multi={multi} />
-          <Deconnexion className="px-3" />
-        </div>
-      </details>
+      <MobileNav>
+        <PanneauNav multi={multi} />
+      </MobileNav>
     </>
   );
 }
