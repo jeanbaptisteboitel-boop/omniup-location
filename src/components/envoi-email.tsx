@@ -44,7 +44,7 @@ export function EnvoiEmail({
   }, [etatIA]);
 
   if (!mailConfigure) {
-    return <Alerte ton="orange">L'envoi d'emails n'est pas configuré. Renseignez les paramètres SMTP dans le fichier .env (voir Paramètres) ; en attendant, téléchargez le PDF et envoyez-le par vos propres moyens.</Alerte>;
+    return <Alerte ton="orange">L'envoi d'emails n'est pas configuré. Renseignez RESEND_API_KEY et MAIL_FROM (ou un serveur SMTP) dans le fichier .env (voir Paramètres) ; en attendant, téléchargez le PDF et envoyez-le par vos propres moyens.</Alerte>;
   }
   if (!destinataire) {
     return <Alerte ton="orange">Le locataire n'a pas d'adresse email : ajoutez-la dans sa fiche pour lui envoyer {pieceJointe}.</Alerte>;

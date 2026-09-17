@@ -71,7 +71,7 @@ export default async function TableauDeBord() {
           <CardBody>
             <ul className="space-y-2 text-sm">
               {enRetard.length > 0 && <li>⚠️ <Link href="/loyers?statut=EN_RETARD" className="font-medium text-red-700 underline">{enRetard.length} loyer{enRetard.length > 1 ? "s" : ""} en retard</Link> ({formatEuros(somme(enRetard.map((x) => x.etat.reste)))}) : relancez les locataires.</li>}
-              {avisAEnvoyer.length > 0 && <li>📨 <Link href="/loyers" className="font-medium text-navy-800 underline">{avisAEnvoyer.length} avis d'échéance à envoyer</Link>{!mailConfigure() && <span className="text-slate-500"> (SMTP non configuré : téléchargez les PDF)</span>}.</li>}
+              {avisAEnvoyer.length > 0 && <li>📨 <Link href="/loyers" className="font-medium text-navy-800 underline">{avisAEnvoyer.length} avis d'échéance à envoyer</Link>{!mailConfigure() && <span className="text-slate-500"> (envoi d'emails non configuré : téléchargez les PDF)</span>}.</li>}
               {quittancesAEnvoyer.length > 0 && <li>🧾 <Link href="/loyers?statut=PAYE" className="font-medium text-navy-800 underline">{quittancesAEnvoyer.length} quittance{quittancesAEnvoyer.length > 1 ? "s" : ""} à envoyer</Link>.</li>}
               {bauxEnCours.map((b) => (
                 <li key={b.id}>✍️ Bail <Link href={`/baux/${b.id}`} className="font-medium text-navy-800 underline">{b.lot.nom} — {nomComplet(b.locataire)}</Link> : {STATUTS_BAIL[b.statut].toLowerCase()}.</li>

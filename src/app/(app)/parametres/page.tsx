@@ -1,11 +1,11 @@
-import { mailConfigure, expediteur } from "@/lib/mail";
+import { mailConfigure, expediteur, fournisseurMail } from "@/lib/mail";
 import { iaConfiguree, modeleIA } from "@/lib/ia-config";
 import { mistralConfigure, modeleMistralExtraction, modeleMistralOCR } from "@/lib/mistral-config";
 import { descriptionStockage, stockageObjetConfigure } from "@/lib/storage";
 import { protectionActive } from "@/lib/session";
 import { joursAvanceAvis } from "@/lib/loyers-sync";
 import { envoyerEmailTest } from "@/actions/parametres";
-import { Badge, Card, CardBody, CardHeader, Infos, PageHeader } from "@/components/ui";
+import { Alerte, Badge, Card, CardBody, CardHeader, Infos, PageHeader } from "@/components/ui";
 import { EmailTest } from "@/components/parametres/email-test";
 import { EntiteForm } from "@/components/entites/entite-form";
 import { entiteCourante, multiEntitesActif } from "@/lib/entite";
@@ -26,6 +26,7 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
   const sp = await searchParams;
   const [entite, multi, nbEntites] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count()]);
   const smtp = mailConfigure();
+  const fournisseur = fournisseurMail();
   const ia = iaConfiguree();
   const cronSecret = !!process.env.CRON_SECRET;
   const envoiAuto = String(process.env.AVIS_ENVOI_AUTO ?? "").toLowerCase() === "true";
@@ -71,15 +72,23 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
         </Card>
 
         <Card>
-          <CardHeader titre="Envoi d'emails (SMTP)" actions={<Etat ok={smtp} />} />
+          <CardHeader titre="Envoi d'emails" description="Avis d'échéance, quittances, contrats et courriers sont envoyés par Resend (recommandé) ou, à défaut, par un serveur SMTP." actions={<Etat ok={smtp} oui={fournisseur === "resend" ? "Resend" : "SMTP"} />} />
           <CardBody className="space-y-4">
-            <Infos items={[
-              { label: "Serveur", valeur: process.env.SMTP_HOST || "—" },
-              { label: "Port", valeur: process.env.SMTP_PORT || "587" },
-              { label: "Expéditeur", valeur: expediteur() || "—" },
-              { label: "Identifiant", valeur: process.env.SMTP_USER || "—" },
-            ]} />
-            <p className="text-sm text-slate-600">Variables : SMTP_HOST, SMTP_PORT, SMTP_SECURE (true pour le port 465), SMTP_USER, SMTP_PASS, SMTP_FROM. Les réponses des locataires sont adressées à l'email du bailleur du lot.</p>
+            {fournisseur === "smtp" ? (
+              <Infos items={[
+                { label: "Fournisseur", valeur: "SMTP" },
+                { label: "Expéditeur", valeur: expediteur() || "—" },
+                { label: "Serveur", valeur: `${process.env.SMTP_HOST} : ${process.env.SMTP_PORT || "587"}` },
+                { label: "Identifiant", valeur: process.env.SMTP_USER || "—" },
+              ]} />
+            ) : (
+              <Infos items={[
+                { label: "Fournisseur", valeur: fournisseur === "resend" ? "Resend" : "—" },
+                { label: "Expéditeur", valeur: expediteur() || "—" },
+              ]} />
+            )}
+            <p className="text-sm text-slate-600">Resend : RESEND_API_KEY et MAIL_FROM (adresse sur un domaine vérifié chez Resend). SMTP : SMTP_HOST, SMTP_PORT, SMTP_SECURE (true pour le port 465), SMTP_USER, SMTP_PASS et MAIL_FROM. Les réponses des locataires sont adressées à l'email du bailleur du lot.</p>
+            {smtp && !expediteur() && <Alerte ton="orange">Aucune adresse d'expédition : renseignez MAIL_FROM.</Alerte>}
             {smtp && <EmailTest action={envoyerEmailTest} />}
           </CardBody>
         </Card>

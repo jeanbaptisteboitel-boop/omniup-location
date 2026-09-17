@@ -56,7 +56,8 @@ Sans variables `SCW_*`, les fichiers importés sont écrits dans `storage/` ; sa
 | `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`, `SCW_ENDPOINT` | Stockage objet Scaleway (compatible S3) pour les fichiers importés. Obligatoire sur Vercel. |
 | `STORAGE_DIR` | Dossier local utilisé quand le stockage objet n'est pas configuré. |
 | `APP_PASSWORD`, `APP_SECRET` | Mot de passe d'accès à l'application et secret de signature de la session. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Envoi des avis, quittances et courriers par email. Sans configuration, les PDF restent téléchargeables. |
+| `RESEND_API_KEY`, `MAIL_FROM` | Envoi des avis, quittances, contrats et courriers par email via [Resend](https://resend.com) (clé API + adresse d'expédition sur un domaine vérifié). Sans configuration, les PDF restent téléchargeables. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | Alternative à Resend : serveur SMTP classique, utilisé seulement si `RESEND_API_KEY` est vide (l'expéditeur reste `MAIL_FROM`). |
 | `AVIS_JOURS_AVANCE` | Nombre de jours avant le début du mois pour émettre l'avis d'échéance (10 par défaut). |
 | `AVIS_ENVOI_AUTO` | `true` pour envoyer automatiquement les avis émis par la tâche planifiée. |
 | `CRON_SECRET` | Secret protégeant `/api/cron/loyers`. |
@@ -91,7 +92,7 @@ npm test            # tests unitaires (règles des baux, appels de loyer, éché
 npm run db:studio   # exploration de la base de données
 ```
 
-Pile technique : Next.js 15 (App Router, actions serveur), Prisma + PostgreSQL (Neon), Tailwind CSS 4, pdfkit, nodemailer, exceljs, SDK AWS S3 (Scaleway), SDK Anthropic, SDK Mistral.
+Pile technique : Next.js 15 (App Router, actions serveur), Prisma + PostgreSQL (Neon), Tailwind CSS 4, pdfkit, Resend (ou nodemailer), exceljs, SDK AWS S3 (Scaleway), SDK Anthropic, SDK Mistral.
 
 ## Sauvegarde
 
