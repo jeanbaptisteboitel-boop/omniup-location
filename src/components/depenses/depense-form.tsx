@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import type { Depense } from "@prisma/client";
 import type { FormState } from "@/lib/forms";
 import { CATEGORIES_DEPENSE, options } from "@/lib/libelles";
@@ -8,11 +8,13 @@ import { toISODate } from "@/lib/dates";
 import { montantPourSaisie } from "@/lib/montants";
 import { affectationVers, type OptionsAffectation } from "@/lib/affectation";
 import { TYPES_ACCEPTES } from "@/lib/storage-constantes";
+import { televerser, type Preparateur } from "@/lib/envoi-direct";
 import { Checkbox, Field, FormActions, FormMessage, Input, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
-import { ButtonLink } from "@/components/ui";
+import { Alerte, ButtonLink } from "@/components/ui";
 
 export function DepenseForm({
   action,
+  preparer,
   initial,
   affectations,
   affectationInitiale,
@@ -20,18 +22,47 @@ export function DepenseForm({
   retour,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
+  preparer: Preparateur;
   initial: Partial<Depense>;
   affectations: OptionsAffectation;
   affectationInitiale?: string;
   annulerHref: string;
   retour?: string;
 }) {
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
+  const [envoi, setEnvoi] = useState<string | null>(null);
+  const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
   const e = state?.errors ?? {};
+
+  /** Si un justificatif est joint et que le stockage objet est configuré, il est envoyé directement au stockage avant l'enregistrement. */
+  async function soumettre(ev: React.FormEvent<HTMLFormElement>) {
+    const fd = new FormData(ev.currentTarget);
+    const f = fd.get("justificatif");
+    if (!(f instanceof File) || f.size === 0) return; // soumission normale
+    ev.preventDefault();
+    setErreurEnvoi(null);
+    try {
+      setEnvoi("Envoi du justificatif…");
+      const r = await televerser(f, preparer);
+      if (r.mode === "direct") {
+        fd.delete("justificatif");
+        fd.set("justificatifChemin", r.fichier.chemin);
+        fd.set("justificatifNom", r.fichier.nomFichier);
+        fd.set("justificatifMime", r.fichier.mimeType);
+      }
+      startTransition(() => formAction(fd));
+    } catch (err) {
+      setErreurEnvoi(err instanceof Error ? err.message : "Échec de l'envoi du justificatif.");
+    } finally {
+      setEnvoi(null);
+    }
+  }
+
   const affectationDefaut = affectationInitiale ?? (initial.lotId || initial.immeubleId ? affectationVers({ lotId: initial.lotId ?? null, immeubleId: initial.immeubleId ?? null }) : "");
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} onSubmit={soumettre} className="space-y-6">
       <FormMessage state={state} />
+      {erreurEnvoi && <Alerte ton="rouge">{erreurEnvoi}</Alerte>}
       {retour && <input type="hidden" name="retour" value={retour} />}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Date" name="date" requis error={e.date}>
@@ -82,7 +113,7 @@ export function DepenseForm({
         </Field>
       </div>
       <FormActions>
-        <SubmitButton>Enregistrer</SubmitButton>
+        <SubmitButton disabled={pending || !!envoi}>{envoi ?? "Enregistrer"}</SubmitButton>
         <ButtonLink href={annulerHref} variante="ghost">Annuler</ButtonLink>
       </FormActions>
     </form>

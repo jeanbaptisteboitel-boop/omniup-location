@@ -4,7 +4,8 @@ import { spawnSync } from "node:child_process";
 
 if (!existsSync(".env")) {
   copyFileSync(".env.example", ".env");
-  console.log("✔ Fichier .env créé à partir de .env.example (à compléter si besoin).");
+  console.log("✔ Fichier .env créé à partir de .env.example : renseignez DATABASE_URL et DIRECT_URL (PostgreSQL), puis relancez npm run setup.");
+  process.exit(0);
 }
 mkdirSync("storage", { recursive: true });
 

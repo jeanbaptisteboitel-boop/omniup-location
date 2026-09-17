@@ -38,7 +38,7 @@ export function ImportEcheancier({
           name="fichier"
           requis
           error={etatAnalyse?.errors?.fichier}
-          hint={iaConfiguree ? "CSV ou Excel (lecture directe) ; PDF ou image du tableau d'amortissement de la banque (lecture par l'assistant IA)." : "CSV ou Excel. L'import d'un PDF ou d'une image nécessite l'assistant IA (ANTHROPIC_API_KEY)."}
+          hint={iaConfiguree ? "CSV ou Excel (lecture directe, 20 Mo max.) ; PDF ou image du tableau d'amortissement de la banque (OCR Mistral, 4 Mo max.)." : "CSV ou Excel. L'import d'un PDF ou d'une image nécessite l'OCR Mistral (MISTRAL_API_KEY)."}
         >
           <Input name="fichier" type="file" accept=".csv,.txt,.xlsx,.xlsm,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,image/*" invalide={!!etatAnalyse?.errors?.fichier} className="file:mr-3 file:rounded file:border-0 file:bg-navy-50 file:px-3 file:py-1 file:text-navy-800" />
         </Field>
@@ -80,8 +80,8 @@ export function ImportEcheancier({
             </>
           ) : (
             <>
-              <p className="text-sm font-semibold text-navy-900">Échéances lues par l'assistant IA ({apercu.echeances.length})</p>
-              {apercu.remarques && <Alerte ton="orange" titre="Remarques de l'assistant">{apercu.remarques}</Alerte>}
+              <p className="text-sm font-semibold text-navy-900">Échéances lues par OCR (Mistral) ({apercu.echeances.length})</p>
+              {apercu.remarques && <Alerte ton="orange" titre="Remarques de l'extraction">{apercu.remarques}</Alerte>}
               <div className="max-h-72 overflow-auto rounded border border-slate-200 bg-white">
                 <Tableau>
                   <thead className="bg-slate-50"><tr><Th>Date</Th><Th droite>Capital</Th><Th droite>Intérêts</Th><Th droite>Assurance</Th><Th droite>Total</Th><Th droite>Restant dû</Th></tr></thead>

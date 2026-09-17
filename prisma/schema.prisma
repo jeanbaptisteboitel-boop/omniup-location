@@ -1,14 +1,16 @@
-// Schéma de données OMNIUP Location
+// Schéma de données OMNIUP Location (PostgreSQL — Neon en production)
 // Montants en euros (Float, arrondis à 2 décimales dans l'application).
 // Dates « jour » stockées à minuit UTC.
+// DATABASE_URL : connexion « pooled » utilisée par l'application ; DIRECT_URL : connexion directe pour les migrations.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

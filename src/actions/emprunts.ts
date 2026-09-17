@@ -10,8 +10,8 @@ import { parseAffectation } from "@/lib/affectation";
 import { analyser, zBool, zDateOpt, zEntierOpt, zMontant, zMontantOpt, zNombreOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { COLONNES, detecterColonnes, genererEcheancier, lignesVersEcheances, parseDateSouple, type Cellule, type Colonne, type LigneEcheance, type Mapping } from "@/lib/emprunts";
 import { lireTableau } from "@/lib/import-fichiers";
-import { extraireEcheancier } from "@/lib/ia";
-import { iaConfiguree } from "@/lib/ia-config";
+import { extraireEcheancier } from "@/lib/mistral";
+import { mistralConfigure } from "@/lib/mistral-config";
 import { toISODate } from "@/lib/dates";
 import { arrondir2 } from "@/lib/montants";
 
@@ -124,7 +124,7 @@ function serialiser(c: Cellule): string | number | null {
 export async function analyserFichierEcheancier(empruntId: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const fichier = fd.get("fichier");
   if (!(fichier instanceof File) || fichier.size === 0) return echec(fd, { fichier: "Sélectionnez un fichier." });
-  if (fichier.size > 20 * 1024 * 1024) return echec(fd, { fichier: "Le fichier dépasse 20 Mo." });
+  if (fichier.size > 4 * 1024 * 1024) return echec(fd, { fichier: "Le fichier dépasse 4 Mo : exportez l'échéancier en CSV ou Excel, ou découpez le PDF." });
   const nom = fichier.name.toLowerCase();
   const type = fichier.type.toLowerCase();
   try {
@@ -140,7 +140,7 @@ export async function analyserFichierEcheancier(empruntId: number, _prev: FormSt
       const mapping = detecterColonnes(entetes);
       apercu = { source: "tableau", entetes, lignes, mapping, echeances: [], remarques: "" };
     } else if (type === "application/pdf" || type.startsWith("image/")) {
-      if (!iaConfiguree()) return echec(fd, { fichier: "L'import d'un PDF ou d'une image nécessite l'assistant IA (ANTHROPIC_API_KEY). Fournissez un fichier CSV ou Excel, ou générez l'échéancier théorique." });
+      if (!mistralConfigure()) return echec(fd, { fichier: "L'import d'un PDF ou d'une image nécessite l'OCR Mistral (MISTRAL_API_KEY). Fournissez un fichier CSV ou Excel, ou générez l'échéancier théorique." });
       const contenu = Buffer.from(await fichier.arrayBuffer());
       const resultat = await extraireEcheancier(contenu, type);
       if (resultat.echeances.length === 0) return echec(fd, { fichier: "Aucune échéance n'a pu être lue dans ce document." + (resultat.remarques ? ` ${resultat.remarques}` : "") });

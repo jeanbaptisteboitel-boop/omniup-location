@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { lireFichier } from "@/lib/storage";
+import { lireFichier, urlTelechargement } from "@/lib/storage";
 import { reponseFichier } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -9,9 +9,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const doc = await prisma.document.findUnique({ where: { id: Number(id) || 0 } });
   if (!doc) return new Response("Document introuvable", { status: 404 });
+  const telecharger = req.nextUrl.searchParams.get("dl") === "1";
   try {
+    const url = await urlTelechargement(doc.chemin, doc.nomFichier, doc.mimeType, telecharger);
+    if (url) return Response.redirect(url, 302);
     const contenu = await lireFichier(doc.chemin);
-    return reponseFichier(contenu, doc.mimeType, doc.nomFichier, req.nextUrl.searchParams.get("dl") === "1");
+    return reponseFichier(contenu, doc.mimeType, doc.nomFichier, telecharger);
   } catch {
     return new Response("Fichier absent du stockage", { status: 404 });
   }

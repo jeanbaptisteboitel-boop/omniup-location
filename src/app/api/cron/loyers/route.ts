@@ -31,3 +31,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return executer(req);
 }
+
+// Durée maximale d'exécution sur Vercel (rédaction IA, OCR, envois d'emails).
+export const maxDuration = 300;

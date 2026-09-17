@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { NavLink } from "./nav-link";
+import { protectionActive } from "@/lib/session";
+import { seDeconnecter } from "@/actions/session";
 
 const GROUPES: { titre: string | null; liens: { href: string; libelle: string }[] }[] = [
   { titre: null, liens: [{ href: "/", libelle: "Tableau de bord" }] },
@@ -69,7 +71,14 @@ export function Sidebar() {
         <div className="mt-6 flex-1 overflow-y-auto">
           <Menu />
         </div>
-        <p className="px-3 text-[11px] text-navy-300">Gestion locative · v0.1</p>
+        <div className="flex items-center justify-between px-3">
+          <p className="text-[11px] text-navy-300">Gestion locative · v0.2</p>
+          {protectionActive() && (
+            <form action={seDeconnecter}>
+              <button type="submit" className="text-[11px] text-navy-300 hover:text-white">Déconnexion</button>
+            </form>
+          )}
+        </div>
       </aside>
       <details className="bg-navy-900 px-3 py-2 lg:hidden">
         <summary className="flex cursor-pointer items-center justify-between">
@@ -78,6 +87,11 @@ export function Sidebar() {
         </summary>
         <div className="pb-3 pt-2">
           <Menu />
+          {protectionActive() && (
+            <form action={seDeconnecter} className="mt-3 px-3">
+              <button type="submit" className="text-xs text-navy-300 hover:text-white">Déconnexion</button>
+            </form>
+          )}
         </div>
       </details>
     </>
