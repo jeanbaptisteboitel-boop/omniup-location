@@ -4,12 +4,13 @@ import type { SearchParams } from "@/lib/params";
 import { TYPES_PERSONNE, adresseSurUneLigne } from "@/lib/libelles";
 import { ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Bailleurs" };
 
 export default async function BailleursPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const bailleurs = await prisma.bailleur.findMany({ orderBy: { nom: "asc" }, include: { _count: { select: { lots: true, immeubles: true } } } });
+  const bailleurs = await prisma.bailleur.findMany({ where: { entiteId: await entiteCouranteId() }, orderBy: { nom: "asc" }, include: { _count: { select: { lots: true, immeubles: true } } } });
   return (
     <>
       <PageHeader titre="Bailleurs" sousTitre="Propriétaires (personnes physiques ou sociétés) au nom desquels les loyers sont appelés." actions={<ButtonLink href="/bailleurs/nouveau">Nouveau bailleur</ButtonLink>} />

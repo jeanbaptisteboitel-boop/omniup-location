@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { STATUTS_BAIL, TYPES_BAIL, TYPES_COURRIER, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
+import { CATEGORIES_MODELE, STATUTS_BAIL, TYPES_BAIL, TYPES_COURRIER, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
 import { REGLES_BAIL, dureeEnMois } from "@/lib/bail-regles";
 import { ajouterAnnees, aujourdhui, formatDate, formatPeriode, toISODate } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
@@ -15,19 +15,21 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function BailPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
   await synchroniserAppelsLoyer({ bailId: id });
-  const b = await prisma.bail.findUnique({
-    where: { id },
+  const b = await prisma.bail.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: {
       lot: { include: { bailleur: true } },
       locataire: true,
       appels: { orderBy: { periode: "desc" }, include: { paiements: true } },
       revisions: { orderBy: { dateEffet: "desc" } },
       courriers: { orderBy: { createdAt: "desc" } },
+      documents: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!b) notFound();
@@ -226,6 +228,27 @@ export default async function BailPage({ params, searchParams }: { params: Param
             )}
           </Card>
         )}
+
+        <Card>
+          <CardHeader titre={`Documents (${b.documents.length})`} description="Avenants, renouvellements, résiliations, actes de caution… établis à partir des modèles." actions={<ButtonLink href={`/modeles?bailId=${b.id}`} taille="sm" variante="secondary">Générer depuis un modèle</ButtonLink>} />
+          {b.documents.length === 0 ? (
+            <CardBody><p className="text-sm text-slate-500">Aucun document. Les modèles fournis couvrent les avenants, renouvellements, congés, résiliations amiables et actes de caution.</p></CardBody>
+          ) : (
+            <Tableau>
+              <thead className="bg-slate-50"><tr><Th>Date</Th><Th>Catégorie</Th><Th>Document</Th><Th>Envoi</Th></tr></thead>
+              <tbody className="divide-y divide-slate-100">
+                {b.documents.map((d) => (
+                  <tr key={d.id} className="hover:bg-slate-50">
+                    <Td>{formatDate(d.createdAt)}</Td>
+                    <Td>{CATEGORIES_MODELE[d.categorie]}</Td>
+                    <Td><Link href={`/documents/${d.id}`} className="font-medium text-navy-800 hover:underline">{d.titre}</Link></Td>
+                    <Td>{d.dateEnvoi ? <Badge ton="vert">Envoyé le {formatDate(d.dateEnvoi)}</Badge> : <Badge ton="gris">Non envoyé</Badge>}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Tableau>
+          )}
+        </Card>
 
         <Card>
           <CardHeader titre={`Courriers (${b.courriers.length})`} description="Courriers adressés au locataire (révision de loyer, relance…), rédigés à la main ou avec l'assistant IA." actions={<ButtonLink href={`/baux/${b.id}/courriers/nouveau`} taille="sm" variante="secondary">Nouveau courrier</ButtonLink>} />

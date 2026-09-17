@@ -9,11 +9,12 @@ import { genererEcheancierEmprunt, supprimerEcheancier, supprimerEmprunt } from 
 import { Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function EmpruntPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const e = await prisma.emprunt.findUnique({ where: { id }, include: { lot: true, immeuble: true, echeances: { orderBy: { date: "asc" } } } });
+  const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: true, immeuble: true, echeances: { orderBy: { date: "asc" } } } });
   if (!e) notFound();
   const annees = Array.from(new Set(e.echeances.map((x) => x.date.getUTCFullYear()))).sort();
   const anneeCourante = aujourdhui().getUTCFullYear();

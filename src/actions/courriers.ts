@@ -11,6 +11,7 @@ import { chargerCourrier } from "@/lib/pdf/donnees";
 import { pdfCourrier } from "@/lib/pdf/documents";
 import { envoyerEmail } from "@/lib/mail";
 import { emailCourrier } from "@/lib/mail-modeles";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaCourrier = z.object({
   type: zEnum(["REVISION_LOYER", "RELANCE", "AUTRE"]),
@@ -21,6 +22,8 @@ const schemaCourrier = z.object({
 export async function creerCourrier(bailId: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaCourrier, fd);
   if (!r.success) return echec(fd, r.errors);
+  const bail = await prisma.bail.findFirst({ where: { id: bailId, entiteId: await entiteCouranteId() }, select: { id: true } });
+  if (!bail) return erreur(fd, "Bail introuvable.");
   const c = await prisma.courrier.create({ data: { bailId, ...r.data } });
   revalidatePath(`/baux/${bailId}`);
   redirect(avecMessage(`/courriers/${c.id}`, "Courrier enregistré. Vous pouvez le télécharger en PDF ou l'envoyer par email."));
@@ -29,6 +32,8 @@ export async function creerCourrier(bailId: number, _prev: FormState, fd: FormDa
 export async function modifierCourrier(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaCourrier, fd);
   if (!r.success) return echec(fd, r.errors);
+  const existant = await prisma.courrier.findFirst({ where: { id, bail: { entiteId: await entiteCouranteId() } }, select: { id: true } });
+  if (!existant) return erreur(fd, "Courrier introuvable.");
   const c = await prisma.courrier.update({ where: { id }, data: r.data });
   revalidatePath(`/courriers/${id}`);
   revalidatePath(`/baux/${c.bailId}`);
@@ -37,7 +42,7 @@ export async function modifierCourrier(id: number, _prev: FormState, fd: FormDat
 
 export async function supprimerCourrier(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const c = await prisma.courrier.findUnique({ where: { id } });
+  const c = await prisma.courrier.findFirst({ where: { id, bail: { entiteId: await entiteCouranteId() } } });
   if (!c) redirect("/baux");
   await prisma.courrier.delete({ where: { id } });
   revalidatePath(`/baux/${c.bailId}`);
@@ -46,7 +51,7 @@ export async function supprimerCourrier(fd: FormData): Promise<void> {
 
 export async function envoyerCourrier(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const c = await chargerCourrier(id);
-  if (!c) return erreur(fd, "Courrier introuvable.");
+  if (!c || c.bail.entiteId !== (await entiteCouranteId())) return erreur(fd, "Courrier introuvable.");
   const email = c.bail.locataire.email;
   if (!email) return erreur(fd, "Le locataire n'a pas d'adresse email.");
   try {

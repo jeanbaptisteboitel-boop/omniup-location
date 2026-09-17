@@ -14,6 +14,14 @@ import { chargerAppel, includeAppel, type AppelComplet } from "@/lib/pdf/donnees
 import { pdfAvisEcheance, pdfQuittance } from "@/lib/pdf/loyers";
 import { envoyerEmail, mailConfigure } from "@/lib/mail";
 import { emailAvis, emailQuittance } from "@/lib/mail-modeles";
+import { entiteCouranteId } from "@/lib/entite";
+
+/** Appel de loyer de l'entité de travail, sinon null. */
+async function appelDeLEntite(id: number): Promise<AppelComplet | null> {
+  const a = await chargerAppel(id);
+  if (!a || a.bail.entiteId !== (await entiteCouranteId())) return null;
+  return a;
+}
 
 function revalider(appel: AppelComplet) {
   revalidatePath("/loyers");
@@ -49,7 +57,7 @@ export async function enregistrerPaiement(appelId: number, _prev: FormState, fd:
   const r = analyser(schemaPaiement, fd);
   if (!r.success) return echec(fd, r.errors);
   if (r.data.montant <= 0) return echec(fd, { montant: "Le montant doit être supérieur à zéro." });
-  const avant = await chargerAppel(appelId);
+  const avant = await appelDeLEntite(appelId);
   if (!avant) return erreur(fd, "Appel de loyer introuvable.");
   const resteAvant = etatAppel(avant, aujourdhui()).reste;
   if (r.data.montant > resteAvant + 0.005) {
@@ -77,8 +85,8 @@ export async function enregistrerPaiement(appelId: number, _prev: FormState, fd:
 
 export async function supprimerPaiement(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const p = await prisma.paiement.findUnique({ where: { id } });
-  if (!p) redirect("/loyers");
+  const p = await prisma.paiement.findUnique({ where: { id }, include: { appel: { select: { bail: { select: { entiteId: true } } } } } });
+  if (!p || p.appel.bail.entiteId !== (await entiteCouranteId())) redirect("/loyers");
   await prisma.paiement.delete({ where: { id } });
   const appel = await chargerAppel(p.appelId);
   if (appel) revalider(appel);
@@ -121,7 +129,7 @@ async function envoyerQuittanceInterne(appel: AppelComplet, objet?: string, corp
 }
 
 export async function envoyerAvis(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const appel = await chargerAppel(appelId);
+  const appel = await appelDeLEntite(appelId);
   if (!appel) return erreur(fd, "Appel de loyer introuvable.");
   try {
     await envoyerAvisInterne(appel, String(fd.get("objet") ?? ""), String(fd.get("corps") ?? ""));
@@ -133,7 +141,7 @@ export async function envoyerAvis(appelId: number, _prev: FormState, fd: FormDat
 }
 
 export async function envoyerQuittance(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const appel = await chargerAppel(appelId);
+  const appel = await appelDeLEntite(appelId);
   if (!appel) return erreur(fd, "Appel de loyer introuvable.");
   if (appel.paiements.length === 0) return erreur(fd, "Aucun paiement enregistré : enregistrez d'abord le paiement.");
   try {
@@ -147,7 +155,7 @@ export async function envoyerQuittance(appelId: number, _prev: FormState, fd: Fo
 
 export async function marquerAvisEnvoye(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const appel = await chargerAppel(id);
+  const appel = await appelDeLEntite(id);
   if (!appel) redirect("/loyers");
   await prisma.appelLoyer.update({ where: { id }, data: { dateEnvoiAvis: appel.dateEnvoiAvis ? null : new Date() } });
   revalider(appel);
@@ -156,7 +164,7 @@ export async function marquerAvisEnvoye(fd: FormData): Promise<void> {
 
 export async function marquerQuittanceEnvoyee(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const appel = await chargerAppel(id);
+  const appel = await appelDeLEntite(id);
   if (!appel) redirect("/loyers");
   await prisma.appelLoyer.update({ where: { id }, data: { dateEnvoiQuittance: appel.dateEnvoiQuittance ? null : new Date() } });
   revalider(appel);
@@ -166,7 +174,7 @@ export async function marquerQuittanceEnvoyee(fd: FormData): Promise<void> {
 /** Envoi groupé de tous les avis non encore envoyés (locataires avec email). */
 export async function envoyerAvisEnAttente(): Promise<void> {
   if (!mailConfigure()) redirect(avecMessage("/loyers", "L'envoi d'emails n'est pas configuré (voir Paramètres).", "erreur"));
-  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { locataire: { email: { not: null } } } }, include: includeAppel, orderBy: { periode: "asc" } });
+  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { entiteId: await entiteCouranteId(), locataire: { email: { not: null } } } }, include: includeAppel, orderBy: { periode: "asc" } });
   let envoyes = 0;
   const erreurs: string[] = [];
   for (const a of appels) {

@@ -5,12 +5,14 @@ import { TYPES_LOT, nomComplet } from "@/lib/libelles";
 import { formatEuros } from "@/lib/montants";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Lots" };
 
 export default async function LotsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const lots = await prisma.lot.findMany({
+    where: { entiteId: await entiteCouranteId() },
     orderBy: [{ ville: "asc" }, { nom: "asc" }],
     include: { bailleur: true, immeuble: true, baux: { where: { statut: "SIGNE" }, include: { locataire: true }, orderBy: { dateDebut: "desc" }, take: 1 } },
   });

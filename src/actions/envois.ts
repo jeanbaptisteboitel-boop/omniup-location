@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { messageErreur } from "@/lib/forms";
 import { preparerEnvoiDirect } from "@/lib/storage";
 import type { ReponsePreparation } from "@/lib/envoi-direct";
+import { entiteCouranteId } from "@/lib/entite";
 
 export async function preparerEnvoiDocument(locataireId: number, nom: string, type: string, taille: number): Promise<ReponsePreparation> {
   try {
-    const l = await prisma.locataire.findUnique({ where: { id: locataireId }, select: { id: true } });
+    const l = await prisma.locataire.findFirst({ where: { id: locataireId, entiteId: await entiteCouranteId() }, select: { id: true } });
     if (!l) return { ok: false, erreur: "Locataire introuvable." };
     return { ok: true, preparation: await preparerEnvoiDirect(`locataires/${locataireId}`, { nom, type, taille }) };
   } catch (e) {

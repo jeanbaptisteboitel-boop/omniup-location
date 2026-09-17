@@ -15,14 +15,15 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { DocumentForm } from "@/components/locataires/document-form";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 const ORDRE_CATEGORIES: CategorieDocument[] = ["PIECE_IDENTITE", "AVIS_IMPOSITION", "JUSTIFICATIF_REVENUS", "JUSTIFICATIF_DOMICILE", "LETTRE_RECOMMANDATION", "AUTRE"];
 
 export default async function LocatairePage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const l = await prisma.locataire.findUnique({
-    where: { id },
+  const l = await prisma.locataire.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: { documents: { orderBy: { createdAt: "desc" } }, baux: { orderBy: { dateDebut: "desc" }, include: { lot: true } } },
   });
   if (!l) notFound();

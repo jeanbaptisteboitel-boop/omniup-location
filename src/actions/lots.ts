@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { echec, type FormState } from "@/lib/forms";
+import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
 import { analyser, zBool, zCodePostal, zEntierOpt, zEnum, zIdOpt, zMontantOpt, zNombreOpt, zTexte, zTexteOpt } from "@/lib/validation";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaLot = z.object({
   type: zEnum(["APPARTEMENT", "MAISON"]),
@@ -26,10 +27,20 @@ const schemaLot = z.object({
   description: zTexteOpt(5000),
 });
 
+async function verifierRattachements(entiteId: number, d: { bailleurId: number | null; immeubleId: number | null }): Promise<Record<string, string>> {
+  const errors: Record<string, string> = {};
+  if (d.bailleurId && !(await prisma.bailleur.findFirst({ where: { id: d.bailleurId, entiteId }, select: { id: true } }))) errors.bailleurId = "Bailleur introuvable.";
+  if (d.immeubleId && !(await prisma.immeuble.findFirst({ where: { id: d.immeubleId, entiteId }, select: { id: true } }))) errors.immeubleId = "Immeuble introuvable.";
+  return errors;
+}
+
 export async function creerLot(_prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaLot, fd);
   if (!r.success) return echec(fd, r.errors);
-  const lot = await prisma.lot.create({ data: r.data });
+  const entiteId = await entiteCouranteId();
+  const pb = await verifierRattachements(entiteId, r.data);
+  if (Object.keys(pb).length) return echec(fd, pb);
+  const lot = await prisma.lot.create({ data: { ...r.data, entiteId } });
   revalidatePath("/lots");
   redirect(`/lots/${lot.id}`);
 }
@@ -37,6 +48,11 @@ export async function creerLot(_prev: FormState, fd: FormData): Promise<FormStat
 export async function modifierLot(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaLot, fd);
   if (!r.success) return echec(fd, r.errors);
+  const entiteId = await entiteCouranteId();
+  const existant = await prisma.lot.findFirst({ where: { id, entiteId }, select: { id: true } });
+  if (!existant) return erreur(fd, "Lot introuvable.");
+  const pb = await verifierRattachements(entiteId, r.data);
+  if (Object.keys(pb).length) return echec(fd, pb);
   await prisma.lot.update({ where: { id }, data: r.data });
   revalidatePath("/lots");
   revalidatePath(`/lots/${id}`);
@@ -45,7 +61,7 @@ export async function modifierLot(id: number, _prev: FormState, fd: FormData): P
 
 export async function supprimerLot(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const lot = await prisma.lot.findUnique({ where: { id }, include: { _count: { select: { baux: true, depenses: true, emprunts: true } } } });
+  const lot = await prisma.lot.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { _count: { select: { baux: true, depenses: true, emprunts: true } } } });
   if (!lot) redirect("/lots");
   if (lot._count.baux || lot._count.depenses || lot._count.emprunts) {
     redirect(avecMessage(`/lots/${id}`, "Impossible de supprimer ce lot : des baux, dépenses ou emprunts lui sont rattachés.", "erreur"));

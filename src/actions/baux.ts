@@ -16,6 +16,7 @@ import { pdfContrat } from "@/lib/pdf/documents";
 import { envoyerEmail } from "@/lib/mail";
 import { emailContrat } from "@/lib/mail-modeles";
 import { messageErreur } from "@/lib/forms";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaBail = z.object({
   lotId: zId,
@@ -39,9 +40,10 @@ async function preparerBail(fd: FormData) {
   const r = analyser(schemaBail, fd);
   if (!r.success) return { ok: false as const, errors: r.errors };
   const d = r.data;
+  const entiteId = await entiteCouranteId();
   const [lot, locataire] = await Promise.all([
-    prisma.lot.findUnique({ where: { id: d.lotId }, select: { id: true, meuble: true } }),
-    prisma.locataire.findUnique({ where: { id: d.locataireId }, select: { id: true } }),
+    prisma.lot.findFirst({ where: { id: d.lotId, entiteId }, select: { id: true, meuble: true } }),
+    prisma.locataire.findFirst({ where: { id: d.locataireId, entiteId }, select: { id: true } }),
   ]);
   const errors: Record<string, string> = {};
   if (!lot) errors.lotId = "Lot introuvable.";
@@ -50,6 +52,7 @@ async function preparerBail(fd: FormData) {
 
   const chargesForfait = d.type === "MOBILITE" ? true : d.chargesForfait;
   const data = {
+    entiteId,
     lotId: d.lotId,
     locataireId: d.locataireId,
     type: d.type,
@@ -84,7 +87,7 @@ export async function creerBail(_prev: FormState, fd: FormData): Promise<FormSta
 }
 
 export async function modifierBail(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const existant = await prisma.bail.findUnique({ where: { id } });
+  const existant = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!existant) return erreur(fd, "Bail introuvable.");
   const verrouille = existant.statut === "SIGNE" || existant.statut === "TERMINE";
   if (verrouille) {
@@ -105,7 +108,7 @@ export async function modifierBail(id: number, _prev: FormState, fd: FormData): 
 
 export async function supprimerBail(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const bail = await prisma.bail.findUnique({ where: { id }, select: { lotId: true } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { lotId: true } });
   if (!bail) redirect("/baux");
   await prisma.bail.delete({ where: { id } });
   revalidatePath("/baux");
@@ -120,7 +123,7 @@ export async function supprimerBail(fd: FormData): Promise<void> {
 export async function envoyerEnSignature(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const ref = String(fd.get("signatureRef") ?? "").trim() || null;
-  const bail = await prisma.bail.findUnique({ where: { id } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) redirect("/baux");
   if (bail.statut !== "BROUILLON") redirect(avecMessage(`/baux/${id}`, "Ce bail n'est plus en brouillon.", "erreur"));
   await prisma.bail.update({ where: { id }, data: { statut: "EN_SIGNATURE", signatureRef: ref ?? bail.signatureRef } });
@@ -131,7 +134,7 @@ export async function envoyerEnSignature(fd: FormData): Promise<void> {
 
 export async function retourBrouillon(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const bail = await prisma.bail.findUnique({ where: { id } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) redirect("/baux");
   if (bail.statut !== "EN_SIGNATURE") redirect(avecMessage(`/baux/${id}`, "Seul un bail en signature peut revenir en brouillon.", "erreur"));
   await prisma.bail.update({ where: { id }, data: { statut: "BROUILLON" } });
@@ -144,7 +147,7 @@ export async function marquerSigne(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const dateSignature = zDateOpt.safeParse(String(fd.get("dateSignature") ?? ""));
   const ref = String(fd.get("signatureRef") ?? "").trim() || null;
-  const bail = await prisma.bail.findUnique({ where: { id } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) redirect("/baux");
   if (bail.statut === "SIGNE" || bail.statut === "TERMINE") redirect(avecMessage(`/baux/${id}`, "Ce bail est déjà signé.", "erreur"));
   if (!dateSignature.success) redirect(avecMessage(`/baux/${id}`, "Date de signature invalide.", "erreur"));
@@ -173,7 +176,7 @@ export async function marquerSigne(fd: FormData): Promise<void> {
 export async function cloturerBail(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const dateFin = zDate.safeParse(String(fd.get("dateFinEffective") ?? ""));
-  const bail = await prisma.bail.findUnique({ where: { id } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) redirect("/baux");
   if (bail.statut !== "SIGNE") redirect(avecMessage(`/baux/${id}`, "Seul un bail signé peut être clôturé.", "erreur"));
   if (!dateFin.success) redirect(avecMessage(`/baux/${id}`, "Indiquez la date de fin effective (départ du locataire).", "erreur"));
@@ -194,6 +197,8 @@ export async function cloturerBail(fd: FormData): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function enregistrerContrat(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
+  if (!bail) return erreur(fd, "Bail introuvable.");
   const texte = String(fd.get("texteContrat") ?? "");
   await prisma.bail.update({ where: { id }, data: { texteContrat: texte.trim() === "" ? null : texte } });
   revalidatePath(`/baux/${id}`);
@@ -212,7 +217,7 @@ const schemaRevision = z.object({
 export async function reviserLoyer(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaRevision, fd);
   if (!r.success) return echec(fd, r.errors);
-  const bail = await prisma.bail.findUnique({ where: { id } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) return erreur(fd, "Bail introuvable.");
   if (bail.type === "MOBILITE") return erreur(fd, "Le loyer d'un bail mobilité ne peut pas être révisé.");
   if (r.data.irlAncienValeur <= 0 || r.data.irlNouveauValeur <= 0) return echec(fd, { irlNouveauValeur: "Indices invalides." });
@@ -241,7 +246,7 @@ export async function reviserLoyer(id: number, _prev: FormState, fd: FormData): 
 }
 
 export async function envoyerContrat(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const bail = await prisma.bail.findUnique({ where: { id }, include: { lot: { include: { bailleur: true } }, locataire: true } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataire: true } });
   if (!bail) return erreur(fd, "Bail introuvable.");
   if (!bail.texteContrat?.trim()) return erreur(fd, "Enregistrez d'abord le texte du contrat.");
   const email = bail.locataire.email;

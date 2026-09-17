@@ -10,12 +10,13 @@ import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeade
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function LotPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const lot = await prisma.lot.findUnique({
-    where: { id },
+  const lot = await prisma.lot.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: {
       bailleur: true,
       immeuble: true,

@@ -10,6 +10,7 @@ import { parseAffectation } from "@/lib/affectation";
 import { confirmerEnvoiDirect, enregistrerFichier, supprimerFichier, typeMimeDe, verifierFichier } from "@/lib/storage";
 import { messageErreur } from "@/lib/forms";
 import { analyser, zBool, zDate, zEnum, zMontant, zTexte, zTexteOpt } from "@/lib/validation";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaDepense = z.object({
   date: zDate,
@@ -68,9 +69,17 @@ async function justificatifDe(r: { fichier: File | null; direct: Justificatif | 
   return null;
 }
 
+async function verifierAffectation(entiteId: number, a: { lotId: number | null; immeubleId: number | null }): Promise<boolean> {
+  if (a.lotId) return !!(await prisma.lot.findFirst({ where: { id: a.lotId, entiteId }, select: { id: true } }));
+  if (a.immeubleId) return !!(await prisma.immeuble.findFirst({ where: { id: a.immeubleId, entiteId }, select: { id: true } }));
+  return false;
+}
+
 export async function creerDepense(_prev: FormState, fd: FormData): Promise<FormState> {
   const r = await lireFormulaire(fd);
   if (!r.ok) return echec(fd, r.errors);
+  const entiteId = await entiteCouranteId();
+  if (!(await verifierAffectation(entiteId, r.data))) return echec(fd, { affectation: "Bien introuvable." });
   let justificatif: Justificatif | null;
   try {
     justificatif = await justificatifDe(r);
@@ -78,7 +87,7 @@ export async function creerDepense(_prev: FormState, fd: FormData): Promise<Form
     return erreur(fd, messageErreur(e));
   }
   const d = await prisma.depense.create({
-    data: { ...r.data, justificatifNom: justificatif?.nomFichier ?? null, justificatifChemin: justificatif?.chemin ?? null, justificatifMime: justificatif?.mimeType ?? null },
+    data: { ...r.data, entiteId, justificatifNom: justificatif?.nomFichier ?? null, justificatifChemin: justificatif?.chemin ?? null, justificatifMime: justificatif?.mimeType ?? null },
   });
   revalider(d);
   const retour = String(fd.get("retour") ?? "") || "/depenses";
@@ -88,8 +97,10 @@ export async function creerDepense(_prev: FormState, fd: FormData): Promise<Form
 export async function modifierDepense(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = await lireFormulaire(fd);
   if (!r.ok) return echec(fd, r.errors);
-  const existante = await prisma.depense.findUnique({ where: { id } });
+  const entiteId = await entiteCouranteId();
+  const existante = await prisma.depense.findFirst({ where: { id, entiteId } });
   if (!existante) redirect("/depenses");
+  if (!(await verifierAffectation(entiteId, r.data))) return echec(fd, { affectation: "Bien introuvable." });
   let justificatif: Justificatif | null | undefined = undefined;
   if (r.fichier || r.direct) {
     try {
@@ -116,7 +127,7 @@ export async function modifierDepense(id: number, _prev: FormState, fd: FormData
 
 export async function supprimerDepense(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const d = await prisma.depense.findUnique({ where: { id } });
+  const d = await prisma.depense.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!d) redirect("/depenses");
   await prisma.depense.delete({ where: { id } });
   await supprimerFichier(d.justificatifChemin);

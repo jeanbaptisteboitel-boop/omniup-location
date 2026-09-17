@@ -7,12 +7,13 @@ import { supprimerBailleur } from "@/actions/bailleurs";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function BailleurPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const b = await prisma.bailleur.findUnique({
-    where: { id },
+  const b = await prisma.bailleur.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: { lots: { orderBy: { nom: "asc" }, include: { immeuble: true } }, immeubles: { orderBy: { nom: "asc" }, include: { _count: { select: { lots: true } } } } },
   });
   if (!b) notFound();

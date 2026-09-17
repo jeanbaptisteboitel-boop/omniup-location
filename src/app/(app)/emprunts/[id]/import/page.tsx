@@ -5,12 +5,13 @@ import { mistralConfigure } from "@/lib/mistral-config";
 import { analyserFichierEcheancier, importerEcheancier } from "@/actions/emprunts";
 import { ImportEcheancier } from "@/components/emprunts/import-echeancier";
 import { Alerte, Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Importer un échéancier" };
 
 export default async function ImportEcheancierPage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
-  const e = await prisma.emprunt.findUnique({ where: { id }, include: { _count: { select: { echeances: true } } } });
+  const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { _count: { select: { echeances: true } } } });
   if (!e) notFound();
   return (
     <>

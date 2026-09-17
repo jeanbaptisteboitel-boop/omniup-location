@@ -14,6 +14,7 @@ import { extraireEcheancier } from "@/lib/mistral";
 import { mistralConfigure } from "@/lib/mistral-config";
 import { toISODate } from "@/lib/dates";
 import { arrondir2 } from "@/lib/montants";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaEmprunt = z.object({
   libelle: zTexte(200),
@@ -46,10 +47,18 @@ function lire(fd: FormData) {
   return { ok: true as const, data: { ...reste, ...affectation } };
 }
 
+async function verifierAffectation(entiteId: number, a: { lotId: number | null; immeubleId: number | null }): Promise<boolean> {
+  if (a.lotId) return !!(await prisma.lot.findFirst({ where: { id: a.lotId, entiteId }, select: { id: true } }));
+  if (a.immeubleId) return !!(await prisma.immeuble.findFirst({ where: { id: a.immeubleId, entiteId }, select: { id: true } }));
+  return false;
+}
+
 export async function creerEmprunt(_prev: FormState, fd: FormData): Promise<FormState> {
   const r = lire(fd);
   if (!r.ok) return echec(fd, r.errors);
-  const e = await prisma.emprunt.create({ data: r.data });
+  const entiteId = await entiteCouranteId();
+  if (!(await verifierAffectation(entiteId, r.data))) return echec(fd, { affectation: "Bien introuvable." });
+  const e = await prisma.emprunt.create({ data: { ...r.data, entiteId } });
   revalider(e);
   redirect(avecMessage(`/emprunts/${e.id}`, "Emprunt créé. Générez ou importez maintenant son échéancier."));
 }
@@ -57,6 +66,10 @@ export async function creerEmprunt(_prev: FormState, fd: FormData): Promise<Form
 export async function modifierEmprunt(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = lire(fd);
   if (!r.ok) return echec(fd, r.errors);
+  const entiteId = await entiteCouranteId();
+  const existant = await prisma.emprunt.findFirst({ where: { id, entiteId }, select: { id: true } });
+  if (!existant) return erreur(fd, "Emprunt introuvable.");
+  if (!(await verifierAffectation(entiteId, r.data))) return echec(fd, { affectation: "Bien introuvable." });
   const e = await prisma.emprunt.update({ where: { id }, data: r.data });
   revalider(e);
   redirect(avecMessage(`/emprunts/${e.id}`, "Emprunt modifié."));
@@ -64,7 +77,7 @@ export async function modifierEmprunt(id: number, _prev: FormState, fd: FormData
 
 export async function supprimerEmprunt(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const e = await prisma.emprunt.findUnique({ where: { id } });
+  const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
   await prisma.emprunt.delete({ where: { id } });
   revalider(e);
@@ -83,7 +96,7 @@ async function remplacerEcheances(empruntId: number, lignes: LigneEcheance[], re
 /** Échéancier théorique calculé à partir des caractéristiques du prêt. */
 export async function genererEcheancierEmprunt(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const e = await prisma.emprunt.findUnique({ where: { id } });
+  const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
   if (e.tauxAnnuel === null || !e.dureeMois || !e.dateDebut) {
     redirect(avecMessage(`/emprunts/${id}`, "Renseignez le taux, la durée en mois et la date de première échéance pour générer l'échéancier.", "erreur"));
@@ -96,7 +109,7 @@ export async function genererEcheancierEmprunt(fd: FormData): Promise<void> {
 
 export async function supprimerEcheancier(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const e = await prisma.emprunt.findUnique({ where: { id } });
+  const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
   await prisma.echeanceEmprunt.deleteMany({ where: { empruntId: id } });
   revalider(e);
@@ -155,7 +168,7 @@ export async function analyserFichierEcheancier(empruntId: number, _prev: FormSt
 }
 
 export async function importerEcheancier(empruntId: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const e = await prisma.emprunt.findUnique({ where: { id: empruntId } });
+  const e = await prisma.emprunt.findFirst({ where: { id: empruntId, entiteId: await entiteCouranteId() } });
   if (!e) return erreur(fd, "Emprunt introuvable.");
   let apercu: ApercuImport;
   try {

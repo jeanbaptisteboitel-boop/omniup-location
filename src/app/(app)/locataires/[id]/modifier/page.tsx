@@ -5,12 +5,13 @@ import { nomComplet } from "@/lib/libelles";
 import { modifierLocataire } from "@/actions/locataires";
 import { LocataireForm } from "@/components/locataires/locataire-form";
 import { Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Modifier le locataire" };
 
 export default async function ModifierLocatairePage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
-  const l = await prisma.locataire.findUnique({ where: { id } });
+  const l = await prisma.locataire.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!l) notFound();
   return (
     <>

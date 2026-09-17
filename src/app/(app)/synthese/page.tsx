@@ -4,13 +4,14 @@ import { CATEGORIES_DEPENSE } from "@/lib/libelles";
 import { formatEuros } from "@/lib/montants";
 import { CATEGORIES_SYNTHESE, calculerSynthese } from "@/lib/synthese";
 import { Alerte, Card, PageHeader, Stat, Tableau, Td, Th } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Synthèse annuelle" };
 
 export default async function SynthesePage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const annee = entierParam(sp, "annee") ?? new Date().getFullYear();
-  const { lignes, total, annees } = await calculerSynthese(annee);
+  const { lignes, total, annees } = await calculerSynthese(annee, await entiteCouranteId());
   const categoriesUtiles = CATEGORIES_SYNTHESE.filter((c) => total.depenses[c] !== 0);
 
   return (

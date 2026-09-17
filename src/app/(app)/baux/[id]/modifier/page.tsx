@@ -5,15 +5,17 @@ import { nomComplet } from "@/lib/libelles";
 import { modifierBail } from "@/actions/baux";
 import { BailForm } from "@/components/baux/bail-form";
 import { Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Modifier le bail" };
 
 export default async function ModifierBailPage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
+  const entiteId = await entiteCouranteId();
   const [b, lots, locataires] = await Promise.all([
-    prisma.bail.findUnique({ where: { id }, include: { lot: true } }),
-    prisma.lot.findMany({ orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
-    prisma.locataire.findMany({ orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
+    prisma.bail.findFirst({ where: { id, entiteId }, include: { lot: true } }),
+    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
+    prisma.locataire.findMany({ where: { entiteId }, orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
   ]);
   if (!b) notFound();
   return (

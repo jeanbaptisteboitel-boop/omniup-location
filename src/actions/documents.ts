@@ -10,6 +10,7 @@ import { confirmerEnvoiDirect, enregistrerFichier, supprimerFichier, typeMimeDe,
 import type { FichierTeleverse } from "@/lib/envoi-direct";
 import { analyser, zEnum, zTexteOpt } from "@/lib/validation";
 import { CATEGORIES_DOCUMENT } from "@/lib/libelles";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaDocument = z.object({
   categorie: zEnum(["PIECE_IDENTITE", "AVIS_IMPOSITION", "LETTRE_RECOMMANDATION", "JUSTIFICATIF_DOMICILE", "JUSTIFICATIF_REVENUS", "AUTRE"]),
@@ -44,7 +45,7 @@ export async function ajouterDocument(locataireId: number, _prev: FormState, fd:
   }
   if (!r.success || Object.keys(errors).length) return echec(fd, errors);
 
-  const locataire = await prisma.locataire.findUnique({ where: { id: locataireId }, select: { id: true } });
+  const locataire = await prisma.locataire.findFirst({ where: { id: locataireId, entiteId: await entiteCouranteId() }, select: { id: true } });
   if (!locataire) return erreur(fd, "Locataire introuvable.");
 
   let nb = 0;
@@ -74,8 +75,8 @@ export async function ajouterDocument(locataireId: number, _prev: FormState, fd:
 
 export async function supprimerDocument(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const doc = await prisma.document.findUnique({ where: { id } });
-  if (!doc) return;
+  const doc = await prisma.document.findUnique({ where: { id }, include: { locataire: { select: { entiteId: true } } } });
+  if (!doc || doc.locataire.entiteId !== (await entiteCouranteId())) return;
   await prisma.document.delete({ where: { id } });
   await supprimerFichier(doc.chemin);
   revalidatePath(`/locataires/${doc.locataireId}`);

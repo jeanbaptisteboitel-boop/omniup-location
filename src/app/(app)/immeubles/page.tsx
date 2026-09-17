@@ -4,12 +4,13 @@ import type { SearchParams } from "@/lib/params";
 import { adresseSurUneLigne } from "@/lib/libelles";
 import { ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Immeubles" };
 
 export default async function ImmeublesPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const immeubles = await prisma.immeuble.findMany({ orderBy: { nom: "asc" }, include: { bailleur: true, _count: { select: { lots: true, depenses: true } } } });
+  const immeubles = await prisma.immeuble.findMany({ where: { entiteId: await entiteCouranteId() }, orderBy: { nom: "asc" }, include: { bailleur: true, _count: { select: { lots: true, depenses: true } } } });
   return (
     <>
       <PageHeader

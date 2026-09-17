@@ -6,12 +6,13 @@ import { modifierDepense } from "@/actions/depenses";
 import { DepenseForm } from "@/components/depenses/depense-form";
 import { preparerEnvoiJustificatif } from "@/actions/envois";
 import { Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Modifier la dépense" };
 
 export default async function ModifierDepensePage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
-  const [d, affectations] = await Promise.all([prisma.depense.findUnique({ where: { id } }), chargerAffectations()]);
+  const [d, affectations] = await Promise.all([prisma.depense.findFirst({ where: { id, entiteId: await entiteCouranteId() } }), chargerAffectations()]);
   if (!d) notFound();
   return (
     <>

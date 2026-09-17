@@ -28,3 +28,11 @@ export async function pdfCourrier(courrier: { objet: string; contenu: string; cr
   texteStructure(doc, contenu);
   return finaliser(doc, fini, `${courrier.objet} - ${bailleur?.nom ?? ""}`);
 }
+
+/** Document généré depuis un modèle (avenant, renouvellement, résiliation, caution…). */
+export async function pdfDocumentGenere(doc: { id: number; titre: string; contenu: string; createdAt: Date }): Promise<Buffer> {
+  const { doc: pdf, fini } = nouveauDocument(doc.titre);
+  const contenu = doc.contenu.trim();
+  texteStructure(pdf, /^#\s/m.test(contenu) ? contenu : `# ${doc.titre}\n\n${contenu}`);
+  return finaliser(pdf, fini, `${doc.titre} - ${formatDate(doc.createdAt)}`);
+}

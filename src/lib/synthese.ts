@@ -28,17 +28,17 @@ function vide(): Record<CategorieDepense, number> {
 }
 
 /** Recettes encaissées et dépenses de l'année, bien par bien (lots, puis immeubles pour les dépenses communes). */
-export async function calculerSynthese(annee: number): Promise<{ lignes: LigneSynthese[]; total: LigneSynthese; annees: number[] }> {
+export async function calculerSynthese(annee: number, entiteId: number): Promise<{ lignes: LigneSynthese[]; total: LigneSynthese; annees: number[] }> {
   const debut = jourUTC(annee, 1, 1);
   const fin = jourUTC(annee + 1, 1, 1);
   const [lots, immeubles, paiements, depenses, echeances, anneesPaiements, anneesDepenses] = await Promise.all([
-    prisma.lot.findMany({ orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: true } }),
-    prisma.immeuble.findMany({ orderBy: { nom: "asc" }, include: { bailleur: true } }),
-    prisma.paiement.findMany({ where: { date: { gte: debut, lt: fin } }, include: { appel: { include: { bail: { select: { lotId: true } } } } } }),
-    prisma.depense.findMany({ where: { date: { gte: debut, lt: fin } } }),
-    prisma.echeanceEmprunt.findMany({ where: { date: { gte: debut, lt: fin } }, include: { emprunt: { select: { lotId: true, immeubleId: true } } } }),
-    prisma.paiement.findMany({ select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
-    prisma.depense.findMany({ select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
+    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: true } }),
+    prisma.immeuble.findMany({ where: { entiteId }, orderBy: { nom: "asc" }, include: { bailleur: true } }),
+    prisma.paiement.findMany({ where: { date: { gte: debut, lt: fin }, appel: { bail: { entiteId } } }, include: { appel: { include: { bail: { select: { lotId: true } } } } } }),
+    prisma.depense.findMany({ where: { entiteId, date: { gte: debut, lt: fin } } }),
+    prisma.echeanceEmprunt.findMany({ where: { date: { gte: debut, lt: fin }, emprunt: { entiteId } }, include: { emprunt: { select: { lotId: true, immeubleId: true } } } }),
+    prisma.paiement.findMany({ where: { appel: { bail: { entiteId } } }, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
+    prisma.depense.findMany({ where: { entiteId }, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
   ]);
 
   const lignes = new Map<string, LigneSynthese>();

@@ -5,14 +5,16 @@ import { nomComplet } from "@/lib/libelles";
 import { creerBail } from "@/actions/baux";
 import { BailForm } from "@/components/baux/bail-form";
 import { Alerte, Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Nouveau bail" };
 
 export default async function NouveauBailPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
+  const entiteId = await entiteCouranteId();
   const [lots, locataires] = await Promise.all([
-    prisma.lot.findMany({ orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
-    prisma.locataire.findMany({ orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
+    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
+    prisma.locataire.findMany({ where: { entiteId }, orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
   ]);
   const lotId = entierParam(sp, "lotId");
   const locataireId = entierParam(sp, "locataireId");

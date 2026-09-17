@@ -9,6 +9,7 @@ import { supprimerDepense } from "@/actions/depenses";
 import { Badge, Button, ButtonLink, Card, CardBody, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Dépenses" };
 
@@ -20,8 +21,10 @@ export default async function DepensesPage({ searchParams }: { searchParams: Sea
   const lotId = entierParam(sp, "lotId");
   const immeubleId = entierParam(sp, "immeubleId");
 
+  const entiteId = await entiteCouranteId();
   const depenses = await prisma.depense.findMany({
     where: {
+      entiteId,
       date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) },
       ...(categorie && categorie in CATEGORIES_DEPENSE ? { categorie } : {}),
       ...(lotId ? { lotId } : {}),
@@ -30,7 +33,7 @@ export default async function DepensesPage({ searchParams }: { searchParams: Sea
     include: { lot: true, immeuble: true },
     orderBy: [{ date: "desc" }, { id: "desc" }],
   });
-  const annees = await prisma.depense.findMany({ select: { date: true }, distinct: ["date"] });
+  const annees = await prisma.depense.findMany({ where: { entiteId }, select: { date: true }, distinct: ["date"] });
   const listeAnnees = Array.from(new Set([anneeCourante, ...annees.map((d) => d.date.getUTCFullYear())])).sort((a, b) => b - a);
   const total = somme(depenses.map((d) => d.montant));
   const parCategorie = (Object.keys(CATEGORIES_DEPENSE) as CategorieDepense[]).map((c) => ({ c, total: somme(depenses.filter((d) => d.categorie === c).map((d) => d.montant)) })).filter((x) => x.total > 0);

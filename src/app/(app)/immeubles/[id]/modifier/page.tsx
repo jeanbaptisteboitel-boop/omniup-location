@@ -4,14 +4,16 @@ import { idDepuis, type ParamsId } from "@/lib/params";
 import { modifierImmeuble } from "@/actions/immeubles";
 import { ImmeubleForm } from "@/components/patrimoine/immeuble-form";
 import { Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Modifier l'immeuble" };
 
 export default async function ModifierImmeublePage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
+  const entiteId = await entiteCouranteId();
   const [i, bailleurs] = await Promise.all([
-    prisma.immeuble.findUnique({ where: { id } }),
-    prisma.bailleur.findMany({ orderBy: { nom: "asc" }, select: { id: true, nom: true } }),
+    prisma.immeuble.findFirst({ where: { id, entiteId } }),
+    prisma.bailleur.findMany({ where: { entiteId }, orderBy: { nom: "asc" }, select: { id: true, nom: true } }),
   ]);
   if (!i) notFound();
   return (

@@ -7,6 +7,13 @@ import { joursAvanceAvis } from "@/lib/loyers-sync";
 import { envoyerEmailTest } from "@/actions/parametres";
 import { Badge, Card, CardBody, CardHeader, Infos, PageHeader } from "@/components/ui";
 import { EmailTest } from "@/components/parametres/email-test";
+import { EntiteForm } from "@/components/entites/entite-form";
+import { entiteCourante, multiEntitesActif } from "@/lib/entite";
+import { activerMultiEntites, desactiverMultiEntites, modifierEntite } from "@/actions/entites";
+import { prisma } from "@/lib/prisma";
+import { Button, ButtonLink } from "@/components/ui";
+import { Flash } from "@/components/flash";
+import type { SearchParams } from "@/lib/params";
 
 export const metadata = { title: "Paramètres" };
 export const dynamic = "force-dynamic";
@@ -15,15 +22,42 @@ function Etat({ ok, oui = "Configuré", non = "Non configuré" }: { ok: boolean;
   return <Badge ton={ok ? "vert" : "orange"}>{ok ? oui : non}</Badge>;
 }
 
-export default function ParametresPage() {
+export default async function ParametresPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
+  const [entite, multi, nbEntites] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count()]);
   const smtp = mailConfigure();
   const ia = iaConfiguree();
   const cronSecret = !!process.env.CRON_SECRET;
   const envoiAuto = String(process.env.AVIS_ENVOI_AUTO ?? "").toLowerCase() === "true";
   return (
     <>
-      <PageHeader titre="Paramètres" sousTitre="La configuration se fait dans le fichier .env à la racine de l'application (redémarrez l'application après modification)." />
+      <PageHeader titre="Paramètres" sousTitre="Réglages de l'application ; la configuration technique se fait dans les variables d'environnement (fichier .env ou Vercel)." />
+      <Flash sp={sp} />
       <div className="space-y-6">
+        <Card>
+          <CardHeader titre={multi ? `Entité de travail : ${entite.nom}` : "Entité"} description={multi ? "Nom et nature de l'entité actuellement sélectionnée." : "Nom et nature de l'entité gérée (personne ou société), repris dans l'assistant et les documents."} />
+          <CardBody>
+            <EntiteForm action={modifierEntite.bind(null, entite.id)} initial={entite} retour="/parametres" />
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader titre="Gestion multi-entités" actions={<Etat ok={multi} oui="Activée" non="Entité unique" />} />
+          <CardBody className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Pour une entreprise de gérance locative ou un cabinet gérant plusieurs personnes et sociétés : chaque entité dispose de ses propres bailleurs, immeubles, lots, locataires, baux, dépenses et emprunts, et l'entité de travail se choisit dans la barre latérale. Les modèles de documents restent communs.
+            </p>
+            {multi ? (
+              <div className="flex flex-wrap gap-2">
+                <ButtonLink href="/entites" variante="secondary">Gérer les entités ({nbEntites})</ButtonLink>
+                <form action={desactiverMultiEntites}><Button type="submit" variante="ghost">Revenir en entité unique</Button></form>
+              </div>
+            ) : (
+              <form action={activerMultiEntites}><Button type="submit" variante="accent">Activer la gestion de plusieurs entités</Button></form>
+            )}
+          </CardBody>
+        </Card>
+
         <Card>
           <CardHeader titre="Stockage" />
           <CardBody>

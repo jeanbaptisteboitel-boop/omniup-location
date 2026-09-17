@@ -9,12 +9,13 @@ import { supprimerImmeuble } from "@/actions/immeubles";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function ImmeublePage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const i = await prisma.immeuble.findUnique({
-    where: { id },
+  const i = await prisma.immeuble.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: {
       bailleur: true,
       lots: { orderBy: { nom: "asc" }, include: { bailleur: true, baux: { where: { statut: "SIGNE" }, include: { locataire: true } } } },

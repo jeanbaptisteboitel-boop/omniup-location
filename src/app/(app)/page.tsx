@@ -10,6 +10,7 @@ import { mailConfigure } from "@/lib/mail";
 import { iaConfiguree } from "@/lib/ia-config";
 import { ButtonLink, Card, CardBody, CardHeader, PageHeader, Stat } from "@/components/ui";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,14 @@ export default async function TableauDeBord() {
   const auj = aujourdhui();
   const annee = auj.getUTCFullYear();
   const periode = periodeDe(auj);
+  const entiteId = await entiteCouranteId();
   const [lots, nbLocataires, baux, appels, depensesAnnee, nbBailleurs] = await Promise.all([
-    prisma.lot.findMany({ include: { baux: { where: { statut: "SIGNE" }, select: { id: true } } } }),
-    prisma.locataire.count(),
-    prisma.bail.findMany({ include: { lot: true, locataire: true, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } }),
-    prisma.appelLoyer.findMany({ include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] }),
-    prisma.depense.aggregate({ where: { date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) } }, _sum: { montant: true } }),
-    prisma.bailleur.count(),
+    prisma.lot.findMany({ where: { entiteId }, include: { baux: { where: { statut: "SIGNE" }, select: { id: true } } } }),
+    prisma.locataire.count({ where: { entiteId } }),
+    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataire: true, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } }),
+    prisma.appelLoyer.findMany({ where: { bail: { entiteId } }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] }),
+    prisma.depense.aggregate({ where: { entiteId, date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) } }, _sum: { montant: true } }),
+    prisma.bailleur.count({ where: { entiteId } }),
   ]);
 
   const etats = appels.map((a) => ({ a, etat: etatAppel(a, auj) }));

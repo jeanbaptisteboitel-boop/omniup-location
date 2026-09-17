@@ -12,6 +12,7 @@ import { envoyerAvisEnAttente, genererAppelsMaintenant } from "@/actions/loyers"
 import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, Stat, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Loyers et quittances" };
 
@@ -25,7 +26,7 @@ export default async function LoyersPage({ searchParams }: { searchParams: Searc
   const bailId = entierParam(sp, "bailId");
   const periode = texteParam(sp, "periode");
 
-  const appels = await prisma.appelLoyer.findMany({ where: { ...(bailId ? { bailId } : {}), ...(periode ? { periode } : {}) }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] });
+  const appels = await prisma.appelLoyer.findMany({ where: { bail: { entiteId: await entiteCouranteId() }, ...(bailId ? { bailId } : {}), ...(periode ? { periode } : {}) }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] });
   const lignes = appels.map((a) => ({ a, etat: etatAppel(a, auj) }));
   const filtrees = filtreStatut && STATUTS.includes(filtreStatut) ? lignes.filter((l) => l.etat.statut === filtreStatut) : lignes;
 

@@ -10,13 +10,14 @@ import { creerCourrier } from "@/actions/courriers";
 import { genererCourrier } from "@/actions/ia";
 import { CourrierEditeur } from "@/components/courriers/courrier-editeur";
 import { Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Nouveau courrier" };
 
 export default async function NouveauCourrierPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const b = await prisma.bail.findUnique({ where: { id }, include: { lot: true, locataire: true, revisions: { select: { id: true } }, appels: { include: { paiements: true } } } });
+  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: true, locataire: true, revisions: { select: { id: true } }, appels: { include: { paiements: true } } } });
   if (!b) notFound();
   const typeParam = texteParam(sp, "type");
   const type: TypeCourrier = typeParam === "REVISION_LOYER" || typeParam === "RELANCE" ? typeParam : "AUTRE";

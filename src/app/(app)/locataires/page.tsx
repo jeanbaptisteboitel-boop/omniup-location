@@ -4,12 +4,14 @@ import type { SearchParams } from "@/lib/params";
 import { adresseSurUneLigne, nomComplet } from "@/lib/libelles";
 import { Badge, ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Locataires" };
 
 export default async function LocatairesPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const locataires = await prisma.locataire.findMany({
+    where: { entiteId: await entiteCouranteId() },
     orderBy: [{ nom: "asc" }, { prenom: "asc" }],
     include: { _count: { select: { documents: true } }, baux: { where: { statut: "SIGNE" }, include: { lot: true }, take: 1 } },
   });

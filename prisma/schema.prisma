@@ -14,6 +14,88 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Entités (dossiers) et réglages
+// ---------------------------------------------------------------------------
+
+enum TypeEntite {
+  PERSONNE
+  SOCIETE
+  AUTRE
+}
+
+/// Entité gérée : une personne ou une société disposant de ses propres bailleurs, lots et locataires.
+/// Une seule entité par défaut ; la gestion de plusieurs entités se débloque dans les réglages.
+model Entite {
+  id         Int              @id @default(autoincrement())
+  nom        String
+  type       TypeEntite       @default(AUTRE)
+  notes      String?
+  bailleurs  Bailleur[]
+  immeubles  Immeuble[]
+  lots       Lot[]
+  locataires Locataire[]
+  baux       Bail[]
+  depenses   Depense[]
+  emprunts   Emprunt[]
+  documents  DocumentGenere[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+enum CategorieModele {
+  BAIL
+  AVENANT
+  RENOUVELLEMENT
+  RESILIATION
+  CAUTION
+  CONVENTION
+  AUTRE
+}
+
+/// Modèle de document (fourni par défaut ou créé par l'utilisateur), partagé par toutes les entités.
+/// Le contenu est un texte structuré (« # », « ## », « - ») avec des variables {{bail.loyerHC}}, {{locataire.nomComplet}}…
+model ModeleDocument {
+  id          Int              @id @default(autoincrement())
+  code        String?          @unique
+  nom         String
+  categorie   CategorieModele
+  description String?
+  contenu     String
+  parDefaut   Boolean          @default(false)
+  documents   DocumentGenere[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+/// Document établi à partir d'un modèle (avenant, renouvellement, résiliation, acte de caution…),
+/// rattaché à une entité et, le cas échéant, à un bail.
+model DocumentGenere {
+  id        Int             @id @default(autoincrement())
+  entiteId  Int
+  entite    Entite          @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  bailId    Int?
+  bail      Bail?           @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  modeleId  Int?
+  modele    ModeleDocument? @relation(fields: [modeleId], references: [id], onDelete: SetNull)
+  titre     String
+  categorie CategorieModele
+  contenu   String
+  dateEnvoi DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([entiteId])
+  @@index([bailId])
+}
+
+/// Réglages globaux de l'application (une seule ligne, id = 1).
+model Reglages {
+  id           Int      @id @default(1)
+  multiEntites Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Patrimoine
 // ---------------------------------------------------------------------------
 
@@ -25,6 +107,8 @@ enum TypePersonne {
 /// Propriétaire bailleur : personne physique ou société (SCI, SARL…).
 model Bailleur {
   id                Int          @id @default(autoincrement())
+  entiteId          Int
+  entite            Entite       @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   typePersonne      TypePersonne @default(PHYSIQUE)
   nom               String
   representant      String?
@@ -42,11 +126,15 @@ model Bailleur {
   lots              Lot[]
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+
+  @@index([entiteId])
 }
 
 /// Immeuble : regroupement facultatif de lots (copropriété, immeuble entier…).
 model Immeuble {
-  id                Int        @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
+  entiteId          Int
+  entite            Entite    @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   nom               String
   adresse           String
   complementAdresse String?
@@ -54,12 +142,14 @@ model Immeuble {
   ville             String
   notes             String?
   bailleurId        Int?
-  bailleur          Bailleur?  @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
+  bailleur          Bailleur? @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
   lots              Lot[]
   depenses          Depense[]
   emprunts          Emprunt[]
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([entiteId])
 }
 
 enum TypeLot {
@@ -70,6 +160,8 @@ enum TypeLot {
 /// Lot : le bien loué (appartement ou maison).
 model Lot {
   id                 Int       @id @default(autoincrement())
+  entiteId           Int
+  entite             Entite    @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   type               TypeLot
   nom                String
   adresse            String
@@ -92,6 +184,8 @@ model Lot {
   emprunts           Emprunt[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+
+  @@index([entiteId])
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +194,8 @@ model Lot {
 
 model Locataire {
   id                Int        @id @default(autoincrement())
+  entiteId          Int
+  entite            Entite     @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   civilite          String?
   nom               String
   prenom            String
@@ -115,6 +211,8 @@ model Locataire {
   baux              Bail[]
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+
+  @@index([entiteId])
 }
 
 enum CategorieDocument {
@@ -159,22 +257,24 @@ enum StatutBail {
 
 /// Bail : lien entre un lot et un locataire.
 model Bail {
-  id               Int             @id @default(autoincrement())
+  id               Int              @id @default(autoincrement())
+  entiteId         Int
+  entite           Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   lotId            Int
-  lot              Lot             @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  lot              Lot              @relation(fields: [lotId], references: [id], onDelete: Restrict)
   locataireId      Int
-  locataire        Locataire       @relation(fields: [locataireId], references: [id], onDelete: Restrict)
+  locataire        Locataire        @relation(fields: [locataireId], references: [id], onDelete: Restrict)
   type             TypeBail
-  statut           StatutBail      @default(BROUILLON)
+  statut           StatutBail       @default(BROUILLON)
   dateDebut        DateTime
   dateFin          DateTime
   loyerHC          Float
-  charges          Float           @default(0)
-  chargesForfait   Boolean         @default(false)
-  depotGarantie    Float           @default(0)
-  jourEcheance     Int             @default(1)
+  charges          Float            @default(0)
+  chargesForfait   Boolean          @default(false)
+  depotGarantie    Float            @default(0)
+  jourEcheance     Int              @default(1)
   motifMobilite    String?
-  clauseRevision   Boolean         @default(true)
+  clauseRevision   Boolean          @default(true)
   irlTrimestre     String?
   irlValeur        Float?
   texteContrat     String?
@@ -185,8 +285,11 @@ model Bail {
   appels           AppelLoyer[]
   revisions        RevisionLoyer[]
   courriers        Courrier[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  documents        DocumentGenere[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([entiteId])
 }
 
 /// Révision annuelle du loyer sur l'indice de référence des loyers (IRL).
@@ -285,27 +388,33 @@ enum CategorieDepense {
 
 /// Dépense affectée à un lot ou à un immeuble.
 model Depense {
-  id                Int              @id @default(autoincrement())
-  date              DateTime
-  libelle           String
-  categorie         CategorieDepense
-  montant           Float
-  fournisseur       String?
-  notes             String?
-  lotId             Int?
-  lot               Lot?             @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  immeubleId        Int?
-  immeuble          Immeuble?        @relation(fields: [immeubleId], references: [id], onDelete: Restrict)
-  justificatifNom   String?
+  id                 Int              @id @default(autoincrement())
+  entiteId           Int
+  entite             Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  date               DateTime
+  libelle            String
+  categorie          CategorieDepense
+  montant            Float
+  fournisseur        String?
+  notes              String?
+  lotId              Int?
+  lot                Lot?             @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  immeubleId         Int?
+  immeuble           Immeuble?        @relation(fields: [immeubleId], references: [id], onDelete: Restrict)
+  justificatifNom    String?
   justificatifChemin String?
-  justificatifMime  String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  justificatifMime   String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([entiteId])
 }
 
 /// Emprunt immobilier rattaché à un lot ou à un immeuble.
 model Emprunt {
   id                 Int               @id @default(autoincrement())
+  entiteId           Int
+  entite             Entite            @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   libelle            String
   banque             String?
   reference          String?
@@ -322,6 +431,8 @@ model Emprunt {
   echeances          EcheanceEmprunt[]
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
+
+  @@index([entiteId])
 }
 
 /// Ligne d'échéancier : part de capital, d'intérêts et d'assurance.

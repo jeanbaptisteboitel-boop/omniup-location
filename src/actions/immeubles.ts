@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { echec, type FormState } from "@/lib/forms";
+import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
 import { analyser, zCodePostal, zIdOpt, zTexte, zTexteOpt } from "@/lib/validation";
+import { entiteCouranteId } from "@/lib/entite";
 
 const schemaImmeuble = z.object({
   nom: zTexte(200),
@@ -18,10 +19,19 @@ const schemaImmeuble = z.object({
   notes: zTexteOpt(5000),
 });
 
+async function verifierBailleur(entiteId: number, bailleurId: number | null): Promise<Record<string, string>> {
+  if (!bailleurId) return {};
+  const b = await prisma.bailleur.findFirst({ where: { id: bailleurId, entiteId }, select: { id: true } });
+  return b ? {} : { bailleurId: "Bailleur introuvable." };
+}
+
 export async function creerImmeuble(_prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaImmeuble, fd);
   if (!r.success) return echec(fd, r.errors);
-  const i = await prisma.immeuble.create({ data: r.data });
+  const entiteId = await entiteCouranteId();
+  const pb = await verifierBailleur(entiteId, r.data.bailleurId);
+  if (Object.keys(pb).length) return echec(fd, pb);
+  const i = await prisma.immeuble.create({ data: { ...r.data, entiteId } });
   revalidatePath("/immeubles");
   redirect(`/immeubles/${i.id}`);
 }
@@ -29,6 +39,11 @@ export async function creerImmeuble(_prev: FormState, fd: FormData): Promise<For
 export async function modifierImmeuble(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const r = analyser(schemaImmeuble, fd);
   if (!r.success) return echec(fd, r.errors);
+  const entiteId = await entiteCouranteId();
+  const existant = await prisma.immeuble.findFirst({ where: { id, entiteId }, select: { id: true } });
+  if (!existant) return erreur(fd, "Immeuble introuvable.");
+  const pb = await verifierBailleur(entiteId, r.data.bailleurId);
+  if (Object.keys(pb).length) return echec(fd, pb);
   await prisma.immeuble.update({ where: { id }, data: r.data });
   revalidatePath("/immeubles");
   revalidatePath(`/immeubles/${id}`);
@@ -37,7 +52,7 @@ export async function modifierImmeuble(id: number, _prev: FormState, fd: FormDat
 
 export async function supprimerImmeuble(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
-  const immeuble = await prisma.immeuble.findUnique({ where: { id }, include: { _count: { select: { depenses: true, emprunts: true } } } });
+  const immeuble = await prisma.immeuble.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { _count: { select: { depenses: true, emprunts: true } } } });
   if (!immeuble) redirect("/immeubles");
   if (immeuble._count.depenses || immeuble._count.emprunts) {
     redirect(avecMessage(`/immeubles/${id}`, "Impossible de supprimer cet immeuble : des dépenses ou des emprunts lui sont rattachés.", "erreur"));

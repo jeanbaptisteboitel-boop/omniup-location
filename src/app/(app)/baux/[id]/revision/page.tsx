@@ -6,12 +6,13 @@ import { ajouterAnnees, toISODate } from "@/lib/dates";
 import { reviserLoyer } from "@/actions/baux";
 import { RevisionForm } from "@/components/baux/revision-form";
 import { Alerte, Card, CardBody, PageHeader } from "@/components/ui";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Révision du loyer" };
 
 export default async function RevisionPage({ params }: { params: ParamsId }) {
   const id = await idDepuis(params);
-  const b = await prisma.bail.findUnique({ where: { id }, include: { lot: true, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } });
+  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: true, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } });
   if (!b) notFound();
   if (b.type === "MOBILITE") redirect(avecMessage(`/baux/${id}`, "Le loyer d'un bail mobilité ne peut pas être révisé.", "erreur"));
   const proposee = ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1);

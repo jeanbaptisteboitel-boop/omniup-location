@@ -1,6 +1,8 @@
 import type {
   CategorieDepense,
   CategorieDocument,
+  CategorieModele,
+  TypeEntite,
   ModePaiement,
   StatutBail,
   TypeBail,
@@ -109,3 +111,19 @@ export function adresseSurPlusieursLignes(a: {
 }): string[] {
   return [a.adresse, a.complementAdresse, [a.codePostal, a.ville].filter(Boolean).join(" ")].filter((l): l is string => !!l);
 }
+
+export const TYPES_ENTITE: Record<TypeEntite, string> = {
+  PERSONNE: "Personne physique",
+  SOCIETE: "Société",
+  AUTRE: "Autre / non précisé",
+};
+
+export const CATEGORIES_MODELE: Record<CategorieModele, string> = {
+  BAIL: "Baux et contrats de location",
+  AVENANT: "Avenants",
+  RENOUVELLEMENT: "Renouvellements",
+  RESILIATION: "Fins de bail et résiliations",
+  CAUTION: "Cautions et garanties",
+  CONVENTION: "Conventions, location-gérance et domiciliation",
+  AUTRE: "Autres documents",
+};

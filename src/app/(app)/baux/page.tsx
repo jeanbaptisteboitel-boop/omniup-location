@@ -8,6 +8,7 @@ import { formatEuros } from "@/lib/montants";
 import { ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Baux" };
 
@@ -17,9 +18,10 @@ export default async function BauxPage({ searchParams }: { searchParams: SearchP
   const sp = await searchParams;
   const filtre = texteParam(sp, "statut") as StatutBail | null;
   const statut = filtre && STATUTS.includes(filtre) ? filtre : null;
+  const entiteId = await entiteCouranteId();
   const [baux, compteurs] = await Promise.all([
-    prisma.bail.findMany({ where: statut ? { statut } : {}, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }], include: { lot: true, locataire: true } }),
-    prisma.bail.groupBy({ by: ["statut"], _count: { _all: true } }),
+    prisma.bail.findMany({ where: { entiteId, ...(statut ? { statut } : {}) }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }], include: { lot: true, locataire: true } }),
+    prisma.bail.groupBy({ by: ["statut"], where: { entiteId }, _count: { _all: true } }),
   ]);
   const nb = (s: StatutBail) => compteurs.find((c) => c.statut === s)?._count._all ?? 0;
 

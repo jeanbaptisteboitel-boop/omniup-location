@@ -16,12 +16,13 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { CourrierEditeur } from "@/components/courriers/courrier-editeur";
 import { EnvoiEmail } from "@/components/envoi-email";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function CourrierPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
   const c = await chargerCourrier(id);
-  if (!c) notFound();
+  if (!c || c.bail.entiteId !== (await entiteCouranteId())) notFound();
   const [nbRevisions, appels] = await Promise.all([
     prisma.revisionLoyer.count({ where: { bailId: c.bailId } }),
     prisma.appelLoyer.findMany({ where: { bailId: c.bailId }, include: { paiements: true } }),

@@ -17,12 +17,13 @@ import { Flash } from "@/components/flash";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { PaiementForm } from "@/components/loyers/paiement-form";
 import { EnvoiEmail } from "@/components/envoi-email";
+import { entiteCouranteId } from "@/lib/entite";
 
 export default async function AppelPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
   const a = await chargerAppel(id);
-  if (!a) notFound();
+  if (!a || a.bail.entiteId !== (await entiteCouranteId())) notFound();
   const auj = aujourdhui();
   const etat = etatAppel(a, auj);
   const { bail } = a;

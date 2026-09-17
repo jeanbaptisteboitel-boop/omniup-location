@@ -4,6 +4,7 @@ import { TYPES_BAIL, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne, nomComplet }
 import { REGLES_BAIL, dureeEnMois } from "./bail-regles";
 import { formatDate, formatDateLongue } from "./dates";
 import { formatEuros, formatNombre } from "./montants";
+import { entiteCouranteId } from "@/lib/entite";
 
 /** Fiche d'information d'un bail, en texte, pour les prompts de rédaction. */
 export async function ficheBail(bailId: number): Promise<{ fiche: string; bail: NonNullable<Awaited<ReturnType<typeof chargerBail>>> }> {
@@ -65,8 +66,8 @@ export async function ficheBail(bailId: number): Promise<{ fiche: string; bail: 
 }
 
 async function chargerBail(id: number) {
-  return prisma.bail.findUnique({
-    where: { id },
+  return prisma.bail.findFirst({
+    where: { id, entiteId: await entiteCouranteId() },
     include: { lot: { include: { bailleur: true, immeuble: true } }, locataire: true },
   });
 }

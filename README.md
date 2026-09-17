@@ -27,7 +27,13 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 - Emprunts : échéancier généré à partir des caractéristiques du prêt ou importé depuis le tableau d'amortissement de la banque (CSV, Excel, PDF ou image via l'IA) pour constater les intérêts et l'assurance emprunteur.
 - Synthèse annuelle recettes / dépenses par bien (état préparatoire à la déclaration 2044 ou à la comptabilité de la SCI), exports CSV.
 
-**Assistant de rédaction** (Anthropic Claude) : contrats de bail, courriers (révision de loyer, relance) et emails d'accompagnement. **OCR et extraction** (Mistral) : lecture des échéanciers PDF ou photographiés.
+**Modèles de documents** : 26 modèles fournis par défaut, modifiables et réinitialisables (baux d'habitation vide et meublé, bail mobilité, bail commercial, bail professionnel, bail dérogatoire, garage ou parking, location saisonnière ; avenants ; renouvellements ; congés et résiliations ; acte de cautionnement solidaire ; convention d'occupation précaire, location-gérance, domiciliation), plus vos propres modèles. Les variables ({{bail.loyerHC}}, {{locataire.nomComplet}}…) sont remplies avec les données du bail ; le document généré se complète, s'adapte avec l'IA, s'exporte en PDF et s'envoie par email.
+
+**Entités** : par défaut une seule entité ; en activant la gestion multi-entités (Paramètres), une entreprise de gérance ou un cabinet gère plusieurs personnes et sociétés, chacune avec ses bailleurs, immeubles, lots, locataires, baux, dépenses, emprunts et documents, l'entité de travail se choisissant dans la barre latérale.
+
+**Calculatrices** : pourcentages de loyer et taux d'effort, révision de loyer par indice (IRL annuel, ILC/ILAT annuel ou triennal, plafond), rentabilité brute et nette avec cash-flow, frais de notaire, capacité d'emprunt, mensualité et coût d'un prêt, prêt in fine.
+
+**Assistant IA** (Anthropic Claude) : chatbot de conseil en gestion locative connaissant l'entité de travail, rédaction de tout courrier (enregistrable comme document), rédaction des contrats, courriers de révision ou de relance et emails d'accompagnement. **OCR et extraction** (Mistral) : lecture des échéanciers PDF ou photographiés.
 
 ## Installation en local
 

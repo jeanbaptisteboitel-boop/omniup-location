@@ -5,13 +5,14 @@ import { aujourdhui } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
 import { ButtonLink, Card, EmptyState, PageHeader, Tableau, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Emprunts" };
 
 export default async function EmpruntsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const annee = aujourdhui().getUTCFullYear();
-  const emprunts = await prisma.emprunt.findMany({ orderBy: { libelle: "asc" }, include: { lot: true, immeuble: true, echeances: { select: { date: true, interets: true, assurance: true } } } });
+  const emprunts = await prisma.emprunt.findMany({ where: { entiteId: await entiteCouranteId() }, orderBy: { libelle: "asc" }, include: { lot: true, immeuble: true, echeances: { select: { date: true, interets: true, assurance: true } } } });
   return (
     <>
       <PageHeader titre="Emprunts" sousTitre="Prêts immobiliers et leurs échéanciers, pour constater les intérêts et l'assurance emprunteur déductibles." actions={<ButtonLink href="/emprunts/nouveau">Nouvel emprunt</ButtonLink>} />
