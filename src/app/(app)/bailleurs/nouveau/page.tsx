@@ -7,10 +7,10 @@ export const metadata = { title: "Nouveau bailleur" };
 export default function NouveauBailleurPage() {
   return (
     <>
-      <PageHeader titre="Nouveau bailleur" retour={{ href: "/bailleurs", libelle: "Bailleurs" }} />
-      <Card>
+      <PageHeader titre="Nouveau bailleur" sousTitre="Propriétaire, personne physique ou société, au nom duquel les baux, avis d'échéance et quittances sont émis." retour={{ href: "/bailleurs", libelle: "Bailleurs" }} />
+      <Card className="max-w-3xl">
         <CardBody>
-          <BailleurForm action={creerBailleur} initial={{}} annulerHref="/bailleurs" />
+          <BailleurForm action={creerBailleur} initial={{}} annulerHref="/bailleurs" libelleEnvoi="Créer le bailleur" />
         </CardBody>
       </Card>
     </>

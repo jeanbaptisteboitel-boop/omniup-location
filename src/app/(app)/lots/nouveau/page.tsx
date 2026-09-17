@@ -21,10 +21,10 @@ export default async function NouveauLotPage({ searchParams }: { searchParams: S
     : {};
   return (
     <>
-      <PageHeader titre="Nouveau lot" retour={{ href: "/lots", libelle: "Lots" }} />
-      <Card>
+      <PageHeader titre="Nouveau lot" sousTitre="Un lot est un appartement ou une maison mis en location, rattaché à un bailleur et, le cas échéant, à un immeuble." retour={{ href: "/lots", libelle: "Lots" }} />
+      <Card className="max-w-3xl">
         <CardBody>
-          <LotForm action={creerLot} initial={initial} bailleurs={bailleurs} immeubles={immeubles} annulerHref="/lots" />
+          <LotForm action={creerLot} initial={initial} bailleurs={bailleurs} immeubles={immeubles} annulerHref="/lots" libelleEnvoi="Créer le lot" />
         </CardBody>
       </Card>
     </>

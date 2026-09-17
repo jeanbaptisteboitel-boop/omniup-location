@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId } from "@/lib/params";
+import { adresseSurUneLigne } from "@/lib/libelles";
 import { modifierBailleur } from "@/actions/bailleurs";
 import { BailleurForm } from "@/components/patrimoine/bailleur-form";
 import { Card, CardBody, PageHeader } from "@/components/ui";
@@ -14,10 +15,10 @@ export default async function ModifierBailleurPage({ params }: { params: ParamsI
   if (!b) notFound();
   return (
     <>
-      <PageHeader titre={`Modifier ${b.nom}`} retour={{ href: `/bailleurs/${b.id}`, libelle: b.nom }} />
-      <Card>
+      <PageHeader titre={`Modifier ${b.nom}`} sousTitre={adresseSurUneLigne(b)} retour={{ href: `/bailleurs/${b.id}`, libelle: b.nom }} />
+      <Card className="max-w-3xl">
         <CardBody>
-          <BailleurForm action={modifierBailleur.bind(null, b.id)} initial={b} annulerHref={`/bailleurs/${b.id}`} />
+          <BailleurForm action={modifierBailleur.bind(null, b.id)} initial={b} annulerHref={`/bailleurs/${b.id}`} libelleEnvoi="Enregistrer les modifications" />
         </CardBody>
       </Card>
     </>
