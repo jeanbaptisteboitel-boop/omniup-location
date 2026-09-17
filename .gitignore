@@ -1,0 +1,24 @@
+# dépendances
+node_modules/
+
+# build Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# environnement local
+.env
+.env.local
+
+# base de données SQLite locale
+prisma/dev.db
+prisma/dev.db-journal
+
+# fichiers importés (pièces d'identité, justificatifs, contrats)
+storage/
+
+# divers
+coverage/
+*.log
+.DS_Store

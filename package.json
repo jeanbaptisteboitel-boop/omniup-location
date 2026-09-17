@@ -1,0 +1,42 @@
+{
+  "name": "omniup-location",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OMNIUP Location — application de gestion locative (lots, locataires, baux, loyers, quittances, dépenses, emprunts)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "setup": "node scripts/setup.mjs",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.126.0",
+    "@prisma/client": "6.19.3",
+    "exceljs": "^4.4.0",
+    "next": "15.5.25",
+    "nodemailer": "^10.0.10",
+    "pdfkit": "^0.20.2",
+    "react": "19.1.9",
+    "react-dom": "19.1.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.3",
+    "@types/pdfkit": "^0.17.6",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

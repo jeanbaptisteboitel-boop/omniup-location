@@ -1,0 +1,36 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { idDepuis, type ParamsId } from "@/lib/params";
+import { nomComplet } from "@/lib/libelles";
+import { modifierBail } from "@/actions/baux";
+import { BailForm } from "@/components/baux/bail-form";
+import { Card, CardBody, PageHeader } from "@/components/ui";
+
+export const metadata = { title: "Modifier le bail" };
+
+export default async function ModifierBailPage({ params }: { params: ParamsId }) {
+  const id = await idDepuis(params);
+  const [b, lots, locataires] = await Promise.all([
+    prisma.bail.findUnique({ where: { id }, include: { lot: true } }),
+    prisma.lot.findMany({ orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
+    prisma.locataire.findMany({ orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
+  ]);
+  if (!b) notFound();
+  return (
+    <>
+      <PageHeader titre={`Modifier le bail — ${b.lot.nom}`} retour={{ href: `/baux/${b.id}`, libelle: "Bail" }} />
+      <Card>
+        <CardBody>
+          <BailForm
+            action={modifierBail.bind(null, b.id)}
+            initial={b}
+            lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, meuble: l.meuble, bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE" }))}
+            locataires={locataires.map((l) => ({ id: l.id, nom: nomComplet(l) }))}
+            annulerHref={`/baux/${b.id}`}
+            verrouille={b.statut === "SIGNE" || b.statut === "TERMINE"}
+          />
+        </CardBody>
+      </Card>
+    </>
+  );
+}

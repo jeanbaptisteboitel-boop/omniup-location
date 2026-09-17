@@ -1,0 +1,79 @@
+"use client";
+
+import { useActionState, useEffect, useState } from "react";
+import type { FormState } from "@/lib/forms";
+import { Field, FormMessage, SubmitButton, Textarea } from "@/components/form";
+import { Alerte, ButtonLink } from "@/components/ui";
+
+export function ContratEditeur({
+  actionEnregistrer,
+  actionGenerer,
+  texteInitial,
+  pdfHref,
+  iaConfiguree,
+}: {
+  actionEnregistrer: (prev: FormState, fd: FormData) => Promise<FormState>;
+  actionGenerer: (prev: FormState, fd: FormData) => Promise<FormState>;
+  texteInitial: string;
+  pdfHref: string;
+  iaConfiguree: boolean;
+}) {
+  const [etatSauvegarde, enregistrer] = useActionState(actionEnregistrer, null);
+  const [etatIA, generer, generationEnCours] = useActionState(actionGenerer, null);
+  const [texte, setTexte] = useState(texteInitial);
+  const [enregistre, setEnregistre] = useState(texteInitial);
+
+  useEffect(() => {
+    if (etatIA?.ok && etatIA.values?.texte) setTexte(etatIA.values.texte);
+  }, [etatIA]);
+
+  useEffect(() => {
+    if (etatSauvegarde?.ok) setEnregistre(texte);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etatSauvegarde]);
+
+  return (
+    <div className="space-y-6">
+      <form action={generer} className="space-y-3 rounded-lg border border-navy-100 bg-navy-50/60 p-4">
+        <p className="text-sm font-semibold text-navy-900">Assistant IA — rédaction du contrat</p>
+        {iaConfiguree ? (
+          <>
+            <FormMessage state={etatIA} />
+            <Field label="Instructions complémentaires (facultatif)" name="instructions" hint="Ex. : ajouter une clause interdisant la sous-location, préciser que le jardin est inclus, colocation avec clause de solidarité…">
+              <Textarea name="instructions" rows={2} />
+            </Field>
+            <div className="flex flex-wrap items-center gap-3">
+              <SubmitButton variante="accent" enCours="Rédaction en cours (une à deux minutes)…">
+                {texte ? "Rédiger une nouvelle version avec l'IA" : "Rédiger le contrat avec l'IA"}
+              </SubmitButton>
+              {generationEnCours && <span className="text-xs text-slate-500">Le contrat complet est rédigé à partir des informations du bail, du lot, du bailleur et du locataire.</span>}
+            </div>
+          </>
+        ) : (
+          <Alerte ton="orange">L'assistant IA n'est pas configuré. Renseignez la clé ANTHROPIC_API_KEY dans le fichier .env (voir Paramètres) pour rédiger automatiquement les contrats.</Alerte>
+        )}
+      </form>
+
+      <form action={enregistrer} className="space-y-3">
+        <FormMessage state={etatSauvegarde} />
+        <Textarea
+          name="texteContrat"
+          rows={30}
+          value={texte}
+          onChange={(ev) => setTexte(ev.target.value)}
+          className="font-mono text-xs leading-relaxed"
+          placeholder="Le texte du contrat. Rédigez-le, collez-le depuis votre modèle, ou générez-le avec l'assistant IA ci-dessus. Titres : lignes commençant par « # » ou « ## » ; listes : lignes commençant par « - »."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <SubmitButton>Enregistrer le contrat</SubmitButton>
+          {enregistre && (
+            <ButtonLink href={pdfHref} variante="secondary" target="_blank">
+              Télécharger le PDF{texte !== enregistre ? " (version enregistrée)" : ""}
+            </ButtonLink>
+          )}
+          {texte !== enregistre && <span className="text-xs text-amber-700">Modifications non enregistrées.</span>}
+        </div>
+      </form>
+    </div>
+  );
+}

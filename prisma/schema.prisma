@@ -1,0 +1,338 @@
+// Schéma de données OMNIUP Location
+// Montants en euros (Float, arrondis à 2 décimales dans l'application).
+// Dates « jour » stockées à minuit UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Patrimoine
+// ---------------------------------------------------------------------------
+
+enum TypePersonne {
+  PHYSIQUE
+  MORALE
+}
+
+/// Propriétaire bailleur : personne physique ou société (SCI, SARL…).
+model Bailleur {
+  id                Int          @id @default(autoincrement())
+  typePersonne      TypePersonne @default(PHYSIQUE)
+  nom               String
+  representant      String?
+  adresse           String
+  complementAdresse String?
+  codePostal        String
+  ville             String
+  email             String?
+  telephone         String?
+  siren             String?
+  iban              String?
+  bic               String?
+  notes             String?
+  immeubles         Immeuble[]
+  lots              Lot[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+/// Immeuble : regroupement facultatif de lots (copropriété, immeuble entier…).
+model Immeuble {
+  id                Int        @id @default(autoincrement())
+  nom               String
+  adresse           String
+  complementAdresse String?
+  codePostal        String
+  ville             String
+  notes             String?
+  bailleurId        Int?
+  bailleur          Bailleur?  @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
+  lots              Lot[]
+  depenses          Depense[]
+  emprunts          Emprunt[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+enum TypeLot {
+  APPARTEMENT
+  MAISON
+}
+
+/// Lot : le bien loué (appartement ou maison).
+model Lot {
+  id                 Int       @id @default(autoincrement())
+  type               TypeLot
+  nom                String
+  adresse            String
+  complementAdresse  String?
+  codePostal         String
+  ville              String
+  etage              String?
+  surface            Float?
+  nbPieces           Int?
+  meuble             Boolean   @default(false)
+  loyerIndicatif     Float?
+  chargesIndicatives Float?
+  description        String?
+  bailleurId         Int?
+  bailleur           Bailleur? @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
+  immeubleId         Int?
+  immeuble           Immeuble? @relation(fields: [immeubleId], references: [id], onDelete: SetNull)
+  baux               Bail[]
+  depenses           Depense[]
+  emprunts           Emprunt[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Locataires et documents
+// ---------------------------------------------------------------------------
+
+model Locataire {
+  id                Int        @id @default(autoincrement())
+  civilite          String?
+  nom               String
+  prenom            String
+  dateNaissance     DateTime?
+  adresse           String?
+  complementAdresse String?
+  codePostal        String?
+  ville             String?
+  telephone         String?
+  email             String?
+  notes             String?
+  documents         Document[]
+  baux              Bail[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}
+
+enum CategorieDocument {
+  PIECE_IDENTITE
+  AVIS_IMPOSITION
+  LETTRE_RECOMMANDATION
+  JUSTIFICATIF_DOMICILE
+  JUSTIFICATIF_REVENUS
+  AUTRE
+}
+
+/// Pièce d'identité ou justificatif importé pour un locataire.
+model Document {
+  id          Int               @id @default(autoincrement())
+  locataireId Int
+  locataire   Locataire         @relation(fields: [locataireId], references: [id], onDelete: Cascade)
+  categorie   CategorieDocument
+  libelle     String?
+  nomFichier  String
+  chemin      String
+  mimeType    String
+  taille      Int
+  createdAt   DateTime          @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Baux
+// ---------------------------------------------------------------------------
+
+enum TypeBail {
+  NON_MEUBLE
+  MEUBLE
+  MOBILITE
+}
+
+enum StatutBail {
+  BROUILLON
+  EN_SIGNATURE
+  SIGNE
+  TERMINE
+}
+
+/// Bail : lien entre un lot et un locataire.
+model Bail {
+  id               Int             @id @default(autoincrement())
+  lotId            Int
+  lot              Lot             @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  locataireId      Int
+  locataire        Locataire       @relation(fields: [locataireId], references: [id], onDelete: Restrict)
+  type             TypeBail
+  statut           StatutBail      @default(BROUILLON)
+  dateDebut        DateTime
+  dateFin          DateTime
+  loyerHC          Float
+  charges          Float           @default(0)
+  chargesForfait   Boolean         @default(false)
+  depotGarantie    Float           @default(0)
+  jourEcheance     Int             @default(1)
+  motifMobilite    String?
+  clauseRevision   Boolean         @default(true)
+  irlTrimestre     String?
+  irlValeur        Float?
+  texteContrat     String?
+  signatureRef     String?
+  dateSignature    DateTime?
+  dateFinEffective DateTime?
+  notes            String?
+  appels           AppelLoyer[]
+  revisions        RevisionLoyer[]
+  courriers        Courrier[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+/// Révision annuelle du loyer sur l'indice de référence des loyers (IRL).
+model RevisionLoyer {
+  id                  Int      @id @default(autoincrement())
+  bailId              Int
+  bail                Bail     @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  dateEffet           DateTime
+  ancienLoyer         Float
+  nouveauLoyer        Float
+  irlAncienTrimestre  String?
+  irlAncienValeur     Float
+  irlNouveauTrimestre String?
+  irlNouveauValeur    Float
+  createdAt           DateTime @default(now())
+}
+
+enum TypeCourrier {
+  REVISION_LOYER
+  RELANCE
+  AUTRE
+}
+
+/// Courrier adressé au locataire (révision de loyer, relance…), rédigé à la main ou avec l'IA.
+model Courrier {
+  id        Int          @id @default(autoincrement())
+  bailId    Int
+  bail      Bail         @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  type      TypeCourrier @default(AUTRE)
+  objet     String
+  contenu   String
+  dateEnvoi DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Loyers
+// ---------------------------------------------------------------------------
+
+/// Appel de loyer (avis d'échéance) pour une période mensuelle.
+model AppelLoyer {
+  id                 Int        @id @default(autoincrement())
+  bailId             Int
+  bail               Bail       @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  periode            String
+  debutPeriode       DateTime
+  finPeriode         DateTime
+  dateEmission       DateTime
+  dateEcheance       DateTime
+  loyer              Float
+  charges            Float
+  total              Float
+  prorata            Boolean    @default(false)
+  dateEnvoiAvis      DateTime?
+  dateEnvoiQuittance DateTime?
+  paiements          Paiement[]
+  createdAt          DateTime   @default(now())
+
+  @@unique([bailId, periode])
+}
+
+enum ModePaiement {
+  VIREMENT
+  PRELEVEMENT
+  CHEQUE
+  ESPECES
+  AUTRE
+}
+
+model Paiement {
+  id        Int          @id @default(autoincrement())
+  appelId   Int
+  appel     AppelLoyer   @relation(fields: [appelId], references: [id], onDelete: Cascade)
+  date      DateTime
+  montant   Float
+  mode      ModePaiement @default(VIREMENT)
+  reference String?
+  createdAt DateTime     @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Dépenses et emprunts
+// ---------------------------------------------------------------------------
+
+enum CategorieDepense {
+  REPARATION_ENTRETIEN
+  AMELIORATION
+  GESTION_LOCATIVE
+  COPROPRIETE
+  ASSURANCE_PNO
+  TAXE_FONCIERE
+  INTERETS_EMPRUNT
+  AUTRE
+}
+
+/// Dépense affectée à un lot ou à un immeuble.
+model Depense {
+  id                Int              @id @default(autoincrement())
+  date              DateTime
+  libelle           String
+  categorie         CategorieDepense
+  montant           Float
+  fournisseur       String?
+  notes             String?
+  lotId             Int?
+  lot               Lot?             @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  immeubleId        Int?
+  immeuble          Immeuble?        @relation(fields: [immeubleId], references: [id], onDelete: Restrict)
+  justificatifNom   String?
+  justificatifChemin String?
+  justificatifMime  String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+/// Emprunt immobilier rattaché à un lot ou à un immeuble.
+model Emprunt {
+  id                 Int               @id @default(autoincrement())
+  libelle            String
+  banque             String?
+  reference          String?
+  montantInitial     Float
+  tauxAnnuel         Float?
+  dureeMois          Int?
+  dateDebut          DateTime?
+  assuranceMensuelle Float?
+  notes              String?
+  lotId              Int?
+  lot                Lot?              @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  immeubleId         Int?
+  immeuble           Immeuble?         @relation(fields: [immeubleId], references: [id], onDelete: Restrict)
+  echeances          EcheanceEmprunt[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+/// Ligne d'échéancier : part de capital, d'intérêts et d'assurance.
+model EcheanceEmprunt {
+  id             Int      @id @default(autoincrement())
+  empruntId      Int
+  emprunt        Emprunt  @relation(fields: [empruntId], references: [id], onDelete: Cascade)
+  date           DateTime
+  capital        Float
+  interets       Float
+  assurance      Float    @default(0)
+  total          Float
+  capitalRestant Float?
+
+  @@index([empruntId, date])
+}
