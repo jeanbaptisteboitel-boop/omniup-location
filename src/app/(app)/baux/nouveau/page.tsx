@@ -21,23 +21,24 @@ export default async function NouveauBailPage({ searchParams }: { searchParams: 
   const lotChoisi = lots.find((l) => l.id === lotId);
   return (
     <>
-      <PageHeader titre="Nouveau bail" sousTitre="Le bail est créé en brouillon ; il génère des appels de loyer une fois marqué comme signé." retour={{ href: "/baux", libelle: "Baux" }} />
+      <PageHeader titre="Nouveau bail" sousTitre="Le bail est créé en brouillon. Vous générerez ensuite le contrat depuis le modèle correspondant." retour={{ href: "/baux", libelle: "Baux" }} />
       {(lots.length === 0 || locataires.length === 0) && (
-        <div className="mb-4">
+        <div className="mb-6 max-w-3xl">
           <Alerte ton="orange" titre="Éléments manquants">
             {lots.length === 0 && <p>Aucun lot : <Link href="/lots/nouveau" className="underline">créez d'abord un lot</Link>.</p>}
             {locataires.length === 0 && <p>Aucun locataire : <Link href="/locataires/nouveau" className="underline">créez d'abord un locataire</Link>.</p>}
           </Alerte>
         </div>
       )}
-      <Card>
+      <Card className="max-w-3xl">
         <CardBody>
           <BailForm
             action={creerBail}
             initial={{ lotId: lotId ?? undefined, locataireId: locataireId ?? undefined, type: lotChoisi?.meuble ? "MEUBLE" : "NON_MEUBLE", loyerHC: lotChoisi?.loyerIndicatif ?? undefined, charges: lotChoisi?.chargesIndicatives ?? undefined }}
-            lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, meuble: l.meuble, bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE" }))}
+            lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, meuble: l.meuble, bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE", loyerIndicatif: l.loyerIndicatif, chargesIndicatives: l.chargesIndicatives }))}
             locataires={locataires.map((l) => ({ id: l.id, nom: nomComplet(l) }))}
             annulerHref="/baux"
+            libelleEnvoi="Créer le bail"
           />
         </CardBody>
       </Card>

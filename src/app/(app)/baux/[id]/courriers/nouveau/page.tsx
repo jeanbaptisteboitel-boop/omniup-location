@@ -28,8 +28,8 @@ export default async function NouveauCourrierPage({ params, searchParams }: { pa
   });
   return (
     <>
-      <PageHeader titre={`Nouveau courrier — ${b.lot.nom}`} sousTitre={`Destinataire : ${nomComplet(b.locataire)}`} retour={{ href: `/baux/${b.id}`, libelle: "Bail" }} />
-      <Card>
+      <PageHeader titre="Nouveau courrier" sousTitre={`${b.lot.nom} · destinataire : ${nomComplet(b.locataire)}. Rédigez le courrier à la main ou avec l'assistant IA, puis téléchargez-le en PDF ou envoyez-le par email.`} retour={{ href: `/baux/${b.id}`, libelle: "Bail" }} />
+      <Card className="max-w-3xl">
         <CardBody>
           <CourrierEditeur
             actionEnregistrer={creerCourrier.bind(null, b.id)}

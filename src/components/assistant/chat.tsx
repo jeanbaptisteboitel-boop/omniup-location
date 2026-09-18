@@ -2,27 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Alerte, Button } from "@/components/ui";
+import { IconeEtincelle, IconeFlecheHaut, IconeIA } from "@/components/icones";
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const SUGGESTIONS = [
-  "Rédige une lettre de relance pour un loyer impayé",
-  "Quel préavis s'applique à un locataire en bail meublé ?",
-  "Comment réviser le loyer d'un bail d'habitation ?",
-  "Rédige un congé pour vente à adresser à un locataire",
-  "Le dépôt de garantie : délai et retenues possibles ?",
-  "Rédige une attestation de loyer à jour pour un locataire",
-];
+const SUGGESTIONS = ["Rédige un courrier de relance", "Explique la révision IRL", "Quels loyers sont en retard ?", "Quel préavis pour un meublé ?"];
+
+const PETIT = "inline-flex h-8 cursor-pointer items-center whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-[13px] font-medium text-navy-900 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan disabled:pointer-events-none disabled:opacity-50";
+
+function Avatar({ taille = 32 }: { taille?: number }) {
+  return (
+    <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-800" style={{ width: taille, height: taille }}>
+      <IconeEtincelle taille={16} />
+    </span>
+  );
+}
 
 export function Chat({ configuree, actionEnregistrer }: { configuree: boolean; actionEnregistrer: (fd: FormData) => Promise<void> }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [saisie, setSaisie] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [copie, setCopie] = useState<number | null>(null);
   const fin = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fin.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (messages.length > 0) fin.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
   async function envoyer(texte: string) {
@@ -46,8 +51,8 @@ export function Chat({ configuree, actionEnregistrer }: { configuree: boolean; a
         const { value, done } = await lecteur.read();
         if (done) break;
         texteReponse += decodeur.decode(value, { stream: true });
-        const copie = texteReponse;
-        setMessages([...historique, { role: "assistant", content: copie }]);
+        const copieTexte = texteReponse;
+        setMessages([...historique, { role: "assistant", content: copieTexte }]);
       }
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Erreur inconnue.");
@@ -57,58 +62,93 @@ export function Chat({ configuree, actionEnregistrer }: { configuree: boolean; a
     }
   }
 
-  async function copier(texte: string) {
+  async function copier(texte: string, index: number) {
     try {
       await navigator.clipboard.writeText(texte);
+      setCopie(index);
+      setTimeout(() => setCopie((c) => (c === index ? null : c)), 2000);
     } catch {
       /* presse-papiers indisponible */
     }
   }
 
-  if (!configuree) {
-    return <Alerte ton="orange">L'assistant IA n'est pas configuré : renseignez ANTHROPIC_API_KEY dans les variables d'environnement (voir Paramètres).</Alerte>;
-  }
+  const vide = messages.length === 0;
 
   return (
-    <div className="flex min-h-[60vh] flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600">Posez une question de gestion locative ou demandez la rédaction d'un courrier. L'assistant connaît les lots, locataires et loyers de l'entité sélectionnée.</p>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} type="button" onClick={() => envoyer(s)} className="rounded-full bg-navy-50 px-3 py-1 text-xs text-navy-800 hover:bg-navy-100">{s}</button>
-              ))}
+    <div className="flex min-h-[640px] flex-col rounded-xl border border-slate-200 bg-white shadow-card">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+        {vide && (
+          <div className="m-auto flex max-w-[560px] flex-col items-center gap-3.5 py-10 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-800">
+              <IconeIA taille={24} />
+            </span>
+            <div>
+              <p className="text-lg font-bold text-navy-900">{configuree ? "Que puis-je faire pour vous ?" : "Assistant IA non configuré"}</p>
+              <p className="mt-1.5 text-sm text-slate-500">
+                {configuree ? "L'assistant connaît vos lots, baux et loyers. Il ne remplace pas un conseil juridique." : "Renseignez la clé ANTHROPIC_API_KEY dans les variables d'environnement du serveur (voir Paramètres) pour activer la rédaction de courriers et les réponses à vos questions."}
+              </p>
             </div>
+            {configuree && (
+              <div className="flex flex-wrap justify-center gap-2">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => envoyer(s)}
+                    className="h-9 cursor-pointer rounded-full border border-slate-300 bg-white px-3.5 text-[13px] font-semibold text-navy-800 transition-colors hover:border-navy-300 hover:bg-navy-50 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${m.role === "user" ? "bg-navy-800 text-white" : "bg-slate-100 text-navy-950"}`}>
-              <div className="whitespace-pre-wrap break-words">{m.content || (enCours && i === messages.length - 1 ? "…" : "")}</div>
-              {m.role === "assistant" && m.content && !(enCours && i === messages.length - 1) && (
-                <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-200 pt-2">
-                  <button type="button" onClick={() => copier(m.content)} className="text-xs text-navy-700 underline">Copier</button>
-                  <form action={actionEnregistrer}>
-                    <input type="hidden" name="contenu" value={m.content} />
-                    <button type="submit" className="text-xs text-navy-700 underline">Enregistrer comme document</button>
-                  </form>
+        {messages.map((m, i) => {
+          const ia = m.role === "assistant";
+          const enRedaction = ia && enCours && i === messages.length - 1;
+          return (
+            <div key={i} className={`flex items-start gap-3 ${ia ? "" : "justify-end"}`}>
+              {ia && <Avatar />}
+              <div className={`min-w-0 ${ia ? "max-w-[720px]" : "max-w-[80%]"}`}>
+                <div className={`whitespace-pre-wrap break-words rounded-xl px-4 py-3 text-sm leading-[1.6] ${ia ? "border border-slate-200 bg-slate-50 text-slate-900" : "bg-navy-800 text-white"}`}>
+                  {m.content}
+                  {enRedaction && <span aria-hidden="true" className="ml-0.5 inline-block h-3.5 w-2 animate-blink bg-violet-800 align-text-bottom" />}
                 </div>
-              )}
+                {ia && !enRedaction && m.content && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <form action={actionEnregistrer}>
+                      <input type="hidden" name="contenu" value={m.content} />
+                      <button type="submit" className={PETIT}>Enregistrer comme document</button>
+                    </form>
+                    <button type="button" onClick={() => copier(m.content, i)} className={PETIT}>
+                      {copie === i ? "Copié" : "Copier"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={fin} />
       </div>
-      {erreur && <div className="px-4 pb-2"><Alerte ton="rouge">{erreur}</Alerte></div>}
+      {erreur && (
+        <div className="px-5 pb-3">
+          <Alerte ton="rouge">{erreur}</Alerte>
+        </div>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           void envoyer(saisie);
         }}
-        className="flex items-end gap-2 border-t border-slate-100 px-4 py-3"
+        className="flex items-end gap-2.5 border-t border-slate-100 px-5 py-4"
       >
+        <label htmlFor="message" className="sr-only">
+          Message
+        </label>
         <textarea
+          id="message"
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
           onKeyDown={(e) => {
@@ -118,12 +158,27 @@ export function Chat({ configuree, actionEnregistrer }: { configuree: boolean; a
             }
           }}
           rows={2}
-          placeholder="Votre question ou le courrier à rédiger… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"
-          className="block w-full resize-y rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/40"
+          disabled={!configuree}
+          placeholder={configuree ? "Posez une question ou demandez un courrier…" : "Assistant IA non configuré"}
+          className="block min-w-0 flex-1 resize-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-normal text-navy-950 placeholder:text-slate-400 focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/30 disabled:bg-slate-50 disabled:text-slate-500"
         />
-        <Button type="submit" variante="accent" disabled={enCours || !saisie.trim()}>{enCours ? "Réponse…" : "Envoyer"}</Button>
-        {messages.length > 0 && <Button type="button" variante="ghost" onClick={() => setMessages([])} disabled={enCours}>Nouvelle conversation</Button>}
+        <button
+          type="submit"
+          aria-label="Envoyer"
+          disabled={enCours || !configuree || !saisie.trim()}
+          className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-navy-800 text-white transition-colors hover:bg-navy-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan disabled:pointer-events-none disabled:opacity-50"
+        >
+          <IconeFlecheHaut taille={18} />
+        </button>
       </form>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3">
+        <p className="text-xs text-slate-400">Anthropic Claude · les réponses peuvent contenir des erreurs · vos données restent dans votre espace.</p>
+        {!vide && (
+          <Button type="button" variante="ghost" taille="sm" onClick={() => setMessages([])} disabled={enCours}>
+            Nouvelle conversation
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

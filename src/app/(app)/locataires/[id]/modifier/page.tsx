@@ -15,8 +15,8 @@ export default async function ModifierLocatairePage({ params }: { params: Params
   if (!l) notFound();
   return (
     <>
-      <PageHeader titre={`Modifier ${nomComplet(l)}`} retour={{ href: `/locataires/${l.id}`, libelle: nomComplet(l) }} />
-      <Card>
+      <PageHeader titre="Modifier le locataire" sousTitre={nomComplet(l)} retour={{ href: `/locataires/${l.id}`, libelle: nomComplet(l) }} />
+      <Card className="max-w-3xl">
         <CardBody>
           <LocataireForm action={modifierLocataire.bind(null, l.id)} initial={l} annulerHref={`/locataires/${l.id}`} />
         </CardBody>

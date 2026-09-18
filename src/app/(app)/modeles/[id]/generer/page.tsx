@@ -21,11 +21,11 @@ export default async function GenererPage({ params, searchParams }: { params: Pa
   const bailId = entierParam(sp, "bailId");
   return (
     <>
-      <PageHeader titre={`Générer : ${m.nom}`} sousTitre={m.description ?? undefined} retour={{ href: bailId ? `/baux/${bailId}` : `/modeles/${m.id}`, libelle: bailId ? "Bail" : "Modèle" }} />
-      <div className="mb-4">
-        <Alerte ton="bleu">Le document généré est enregistré dans « Documents », rattaché au bail choisi. Vous pourrez ensuite le compléter, le faire adapter par l'assistant IA, le télécharger en PDF et l'envoyer par email.</Alerte>
-      </div>
-      <Card>
+      <PageHeader titre={`Générer : ${m.nom}`} sousTitre={m.description ?? undefined} retour={bailId ? { href: `/baux/${bailId}`, libelle: "Bail" } : { href: `/modeles/${m.id}`, libelle: "Modèle" }} />
+      <Alerte ton="bleu" className="mb-6 max-w-3xl">
+        Le document généré est enregistré dans « Documents », rattaché au bail choisi. Vous pourrez ensuite le compléter, le faire adapter par l'assistant IA, le télécharger en PDF et l'envoyer par email.
+      </Alerte>
+      <Card className="max-w-3xl">
         <CardBody>
           <GenererForm
             action={genererDocument.bind(null, m.id)}

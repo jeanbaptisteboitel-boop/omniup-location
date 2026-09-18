@@ -8,7 +8,7 @@ export default async function OutilsPage({ searchParams }: { searchParams: Searc
   const sp = await searchParams;
   return (
     <>
-      <PageHeader titre="Calculatrices" sousTitre="Pourcentages de loyer, révision par indice, rentabilité, frais de notaire, capacité d'emprunt, mensualités et prêt in fine. Les résultats sont des estimations indicatives." />
+      <PageHeader titre="Calculatrices" sousTitre="Résultats instantanés, indicatifs. Les montants sont arrondis au centime." />
       <Calculatrices initial={texteParam(sp, "onglet") ?? undefined} />
     </>
   );

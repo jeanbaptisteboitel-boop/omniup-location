@@ -6,8 +6,13 @@ import { CATEGORIES_DOCUMENT, options } from "@/lib/libelles";
 import { TYPES_ACCEPTES } from "@/lib/storage-constantes";
 import { televerser, type FichierTeleverse, type Preparateur } from "@/lib/envoi-direct";
 import { Field, FormMessage, Input, Select, valeurInitiale } from "@/components/form";
-import { Alerte, Button } from "@/components/ui";
+import { ZoneFichier } from "@/components/zone-fichier";
+import { Alerte, Button, Spinner } from "@/components/ui";
 
+/**
+ * Import d'un ou plusieurs justificatifs dans le dossier du locataire.
+ * Les fichiers partent directement vers le stockage objet quand il est configuré, sinon par l'action serveur.
+ */
 export function DocumentForm({
   action,
   preparer,
@@ -20,11 +25,15 @@ export function DocumentForm({
   const [state, formAction, pending] = useActionState(action, null);
   const [envoi, setEnvoi] = useState<string | null>(null);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
   const ref = useRef<HTMLFormElement>(null);
   const e = state?.errors ?? {};
 
   useEffect(() => {
-    if (state?.ok) ref.current?.reset();
+    if (state?.ok) {
+      ref.current?.reset();
+      setGeneration((g) => g + 1);
+    }
   }, [state]);
 
   async function soumettre(ev: React.FormEvent<HTMLFormElement>) {
@@ -36,7 +45,7 @@ export function DocumentForm({
       const televerses: FichierTeleverse[] = [];
       let modeServeur = fichiers.length === 0;
       for (let i = 0; i < fichiers.length && !modeServeur; i++) {
-        setEnvoi(`Envoi du fichier ${i + 1} sur ${fichiers.length}…`);
+        setEnvoi(fichiers.length > 1 ? `Envoi du fichier ${i + 1} sur ${fichiers.length} : ${fichiers[i].name}…` : `Envoi de ${fichiers[i].name}…`);
         const r = await televerser(fichiers[i], preparer);
         if (r.mode === "serveur") modeServeur = true;
         else televerses.push(r.fichier);
@@ -53,24 +62,34 @@ export function DocumentForm({
     }
   }
 
+  const occupe = pending || !!envoi;
+
   return (
-    <form ref={ref} onSubmit={soumettre} className="space-y-4">
+    <form ref={ref} onSubmit={soumettre} className="flex flex-col gap-3.5">
       <FormMessage state={state} />
       {erreurEnvoi && <Alerte ton="rouge">{erreurEnvoi}</Alerte>}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Type de document" name="categorie" requis error={e.categorie}>
-          <Select name="categorie" options={options(CATEGORIES_DOCUMENT)} defaultValue={valeurInitiale(state, "categorie", categorieInitiale ?? "PIECE_IDENTITE")} />
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        <Field label="Catégorie" name="categorie" requis error={e.categorie}>
+          <Select name="categorie" options={options(CATEGORIES_DOCUMENT)} defaultValue={valeurInitiale(state, "categorie", categorieInitiale ?? "PIECE_IDENTITE")} invalide={!!e.categorie} />
         </Field>
-        <Field label="Libellé" name="libelle" error={e.libelle} hint="Ex. : CNI recto-verso, Avis 2025 sur revenus 2024">
-          <Input name="libelle" defaultValue={valeurInitiale(state, "libelle", "")} />
-        </Field>
-        <Field label="Fichier(s)" name="fichier" requis error={e.fichier} hint="PDF, JPG, PNG, WEBP ou HEIC — 20 Mo max. par fichier">
-          <Input name="fichier" type="file" accept={TYPES_ACCEPTES} multiple invalide={!!e.fichier} className="file:mr-3 file:rounded file:border-0 file:bg-navy-50 file:px-3 file:py-1 file:text-navy-800" />
+        <Field label="Libellé" name="libelle" error={e.libelle} hint="Facultatif · ex. : CNI recto-verso, Avis 2025 sur revenus 2024">
+          <Input name="libelle" defaultValue={valeurInitiale(state, "libelle", "")} invalide={!!e.libelle} />
         </Field>
       </div>
-      <div className="flex items-center gap-3">
-        <Button type="submit" variante="accent" disabled={pending || !!envoi}>
-          {envoi ?? (pending ? "Enregistrement…" : "Importer")}
+      <div>
+        <ZoneFichier key={generation} name="fichier" accept={TYPES_ACCEPTES} multiple aide="PDF, JPG, PNG, WEBP ou HEIC · 20 Mo maximum par fichier" />
+        {e.fichier && <p className="mt-1.5 text-xs text-red-600">{e.fichier}</p>}
+        {envoi && (
+          <div className="mt-2.5 flex items-center gap-2.5 text-[13px] text-slate-600" role="status">
+            <Spinner className="border-navy-800/30 border-t-navy-800" />
+            <span className="flex-1">{envoi}</span>
+          </div>
+        )}
+      </div>
+      <div>
+        <Button type="submit" variante="accent" disabled={occupe}>
+          {occupe && <Spinner className="border-navy-950/30 border-t-navy-950" />}
+          {envoi ? "Envoi en cours…" : pending ? "Enregistrement…" : "Importer"}
         </Button>
       </div>
     </form>

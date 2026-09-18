@@ -6,6 +6,7 @@ import type { FormState } from "@/lib/forms";
 import { TYPES_COURRIER, options } from "@/lib/libelles";
 import { Field, FormActions, FormMessage, Input, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { Alerte, ButtonLink } from "@/components/ui";
+import { IconeEtincelle } from "@/components/icones";
 
 const OBJETS: Record<TypeCourrier, string> = {
   REVISION_LOYER: "Révision annuelle du loyer",
@@ -51,15 +52,27 @@ export function CourrierEditeur({
   const indisponible = (type === "REVISION_LOYER" && !aDesRevisions) || (type === "RELANCE" && !aDesImpayes);
 
   return (
-    <div className="space-y-6">
-      <form action={generer} className="space-y-3 rounded-lg border border-navy-100 bg-navy-50/60 p-4">
-        <p className="text-sm font-semibold text-navy-900">Assistant IA — rédaction du courrier</p>
+    <div className="flex flex-col gap-5">
+      <form action={generer} className="flex flex-col gap-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3.5">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-800"><IconeEtincelle taille={15} /></span>
+          <p className="text-sm font-bold text-navy-900">Rédiger le courrier avec l'IA</p>
+        </div>
         <FormMessage state={etatIA} />
         <input type="hidden" name="type" value={type} />
         {revisionId && <input type="hidden" name="revisionId" value={revisionId} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Type de courrier" name="type_choix">
-            <Select name="type_choix" options={options(TYPES_COURRIER)} value={type} onChange={(ev) => { const t = ev.target.value as TypeCourrier; setType(t); setObjet((o) => (o === "" || Object.values(OBJETS).includes(o) ? OBJETS[t] : o)); }} />
+            <Select
+              name="type_choix"
+              options={options(TYPES_COURRIER)}
+              value={type}
+              onChange={(ev) => {
+                const t = ev.target.value as TypeCourrier;
+                setType(t);
+                setObjet((o) => (o === "" || Object.values(OBJETS).includes(o) ? OBJETS[t] : o));
+              }}
+            />
           </Field>
           {type === "RELANCE" && (
             <Field label="Niveau" name="niveau">
@@ -69,17 +82,19 @@ export function CourrierEditeur({
         </div>
         {type === "REVISION_LOYER" && !aDesRevisions && <Alerte ton="orange">Aucune révision de loyer n'est enregistrée : appliquez d'abord la révision depuis la fiche du bail.</Alerte>}
         {type === "RELANCE" && !aDesImpayes && <Alerte ton="orange">Aucune échéance en retard pour ce bail.</Alerte>}
-        <Field label={type === "AUTRE" ? "Décrivez le courrier souhaité" : "Instructions complémentaires (facultatif)"} name="instructions" hint="Ex. : rappeler l'obligation d'assurance, proposer un échéancier, ton ferme…">
+        <Field label={type === "AUTRE" ? "Décrivez le courrier souhaité" : "Instructions complémentaires"} name="instructions" hint="Facultatif · ex. : rappeler l'obligation d'assurance, proposer un échéancier, ton ferme…">
           <Textarea name="instructions" rows={2} />
         </Field>
         {iaConfiguree ? (
-          <SubmitButton variante="accent" enCours="Rédaction en cours…" disabled={indisponible}>Rédiger avec l'IA</SubmitButton>
+          <div>
+            <SubmitButton variante="secondary" taille="sm" enCours="Rédaction en cours…" disabled={indisponible}>Rédiger avec l'IA</SubmitButton>
+          </div>
         ) : (
           <Alerte ton="orange">Assistant IA non configuré (ANTHROPIC_API_KEY) : rédigez le courrier ci-dessous.</Alerte>
         )}
       </form>
 
-      <form action={enregistrer} className="space-y-4">
+      <form action={enregistrer} className="flex flex-col gap-[18px]">
         <FormMessage state={etat} />
         <input type="hidden" name="type" value={type} />
         <Field label="Objet" name="objet" requis error={e.objet}>
@@ -90,7 +105,7 @@ export function CourrierEditeur({
         </Field>
         <FormActions>
           <SubmitButton>{libelleEnregistrer}</SubmitButton>
-          <ButtonLink href={annulerHref} variante="ghost">Retour</ButtonLink>
+          <ButtonLink href={annulerHref} variante="secondary">Annuler</ButtonLink>
         </FormActions>
       </form>
     </div>

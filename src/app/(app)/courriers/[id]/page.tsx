@@ -38,27 +38,26 @@ export default async function CourrierPage({ params, searchParams }: { params: P
     <>
       <PageHeader
         titre={c.objet}
+        badge={c.dateEnvoi ? <Badge ton="vert">Envoyé le {formatDate(c.dateEnvoi)}</Badge> : <Badge ton="gris">Non envoyé</Badge>}
         sousTitre={
-          <span className="flex flex-wrap items-center gap-2">
-            <Badge ton="bleu">{TYPES_COURRIER[c.type]}</Badge>
-            {c.dateEnvoi ? <Badge ton="vert">Envoyé le {formatDateHeure(c.dateEnvoi)}</Badge> : <Badge ton="gris">Non envoyé</Badge>}
-            <span>Créé le {formatDate(c.createdAt)} · <Link href={`/locataires/${c.bail.locataire.id}`} className="text-navy-800 hover:underline">{nomComplet(c.bail.locataire)}</Link> · <Link href={`/baux/${c.bail.id}`} className="text-navy-800 hover:underline">{c.bail.lot.nom}</Link></span>
+          <span>
+            {TYPES_COURRIER[c.type]} · créé le {formatDate(c.createdAt)}{c.dateEnvoi ? ` · envoyé le ${formatDateHeure(c.dateEnvoi)}` : ""} · <Link href={`/locataires/${c.bail.locataire.id}`} className="text-navy-800 hover:underline">{nomComplet(c.bail.locataire)}</Link> · <Link href={`/baux/${c.bail.id}`} className="text-navy-800 hover:underline">{c.bail.lot.nom}</Link>
           </span>
         }
-        retour={{ href: `/baux/${c.bailId}`, libelle: "Bail" }}
+        retour={{ href: `/baux/${c.bailId}?onglet=courriers`, libelle: "Bail" }}
         actions={
           <>
-            <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf`} variante="secondary" target="_blank">Voir le PDF</ButtonLink>
-            <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf?dl=1`} variante="secondary">Télécharger</ButtonLink>
-            <ConfirmForm action={supprimerCourrier} message="Supprimer ce courrier ?">
+            <ConfirmForm action={supprimerCourrier} titre="Supprimer ce courrier ?" message={`« ${c.objet} » sera définitivement supprimé. Cette action est irréversible.`} libelleConfirmer="Supprimer définitivement">
               <input type="hidden" name="id" value={c.id} />
               <Button type="submit" variante="danger">Supprimer</Button>
             </ConfirmForm>
+            <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf`} variante="secondary" target="_blank">Voir le PDF</ButtonLink>
+            <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf?dl=1`} variante="secondary">Télécharger</ButtonLink>
           </>
         }
       />
       <Flash sp={sp} />
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <Card>
           <CardHeader titre="Envoi par email" description="Le courrier est joint en PDF au message." />
           <CardBody>
@@ -78,7 +77,7 @@ export default async function CourrierPage({ params, searchParams }: { params: P
           </CardBody>
         </Card>
         <Card>
-          <CardHeader titre="Texte du courrier" />
+          <CardHeader titre="Texte du courrier" description="Modifiez le texte puis enregistrez : le PDF est régénéré à partir de la version enregistrée." />
           <CardBody>
             <CourrierEditeur
               actionEnregistrer={modifierCourrier.bind(null, c.id)}
@@ -87,7 +86,7 @@ export default async function CourrierPage({ params, searchParams }: { params: P
               iaConfiguree={iaConfiguree()}
               aDesRevisions={nbRevisions > 0}
               aDesImpayes={aDesImpayes}
-              annulerHref={`/baux/${c.bailId}`}
+              annulerHref={`/baux/${c.bailId}?onglet=courriers`}
               libelleEnregistrer="Enregistrer les modifications"
             />
           </CardBody>
