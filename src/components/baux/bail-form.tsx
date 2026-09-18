@@ -10,6 +10,7 @@ import { formatEuros, montantPourSaisie, parseMontant } from "@/lib/montants";
 import { trimestresIRL } from "@/lib/irl";
 import { Checkbox, Field, FormActions, FormMessage, Input, RadioCarte, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { Alerte, ButtonLink } from "@/components/ui";
+import { useVersion } from "./use-version";
 
 export type LotOption = { id: number; nom: string; adresse: string; codePostal: string; ville: string; meuble: boolean; bailleurPersonneMorale: boolean; loyerIndicatif?: number | null; chargesIndicatives?: number | null };
 export type LocataireOption = { id: number; nom: string };
@@ -45,6 +46,9 @@ export function BailForm({
 }) {
   const [state, formAction] = useActionState(action, null);
   const e = state?.errors ?? {};
+  // Remonte le formulaire à chaque réponse du serveur : les champs contrôlés (type, lot, dates…) et les valeurs
+  // par défaut re-soumises (valeurInitiale) sont alors resynchronisés après la réinitialisation automatique de React.
+  const version = useVersion(state);
 
   const [type, setType] = useState<TypeBail>((valeurInitiale(state, "type", initial.type ?? "NON_MEUBLE") || "NON_MEUBLE") as TypeBail);
   const [lotId, setLotId] = useState(valeurInitiale(state, "lotId", initial.lotId));
@@ -56,6 +60,10 @@ export function BailForm({
 
   const regle = REGLES_BAIL[type];
   const lot = lots.find((l) => String(l.id) === lotId);
+  // Après une erreur serveur, React réinitialise le formulaire : les <select> non contrôlés sont remontés (key) sur la valeur re-soumise.
+  const locataireInitial = valeurInitiale(state, "locataireId", initial.locataireId);
+  const motifInitial = valeurInitiale(state, "motifMobilite", initial.motifMobilite);
+  const irlTrimestreInitial = valeurInitiale(state, "irlTrimestre", initial.irlTrimestre);
   const montantLoyer = parseMontant(loyerHC) ?? 0;
   const total = montantLoyer + (parseMontant(charges) ?? 0);
   const plafondDepot = regle.depotMaxMois * montantLoyer;
@@ -90,7 +98,7 @@ export function BailForm({
   const aideDepot = regle.depotMaxMois === 0 ? "Aucun dépôt de garantie autorisé en bail mobilité." : `Plafond légal : ${regle.depotMaxMois} mois de loyer hors charges${montantLoyer > 0 ? `, soit ${formatEuros(plafondDepot)}` : ""}.`;
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form key={version} action={formAction} className="flex flex-col gap-5">
       <FormMessage state={state} />
       {verrouille && <Alerte ton="orange">Ce bail est signé : le lot, le locataire, le type et la date de début ne sont plus modifiables.</Alerte>}
 
@@ -132,12 +140,12 @@ export function BailForm({
           />
         </Field>
         <Field label="Locataire" name="locataireId" requis error={e.locataireId}>
-          <Select name="locataireId" vide="Choisir un locataire…" options={locataires.map((l) => ({ value: String(l.id), label: l.nom }))} defaultValue={valeurInitiale(state, "locataireId", initial.locataireId)} invalide={!!e.locataireId} disabled={verrouille} />
+          <Select key={locataireInitial} name="locataireId" vide="Choisir un locataire…" options={locataires.map((l) => ({ value: String(l.id), label: l.nom }))} defaultValue={locataireInitial} invalide={!!e.locataireId} disabled={verrouille} />
         </Field>
 
         {type === "MOBILITE" && (
           <Field label="Motif du bail mobilité" name="motifMobilite" requis error={e.motifMobilite} className="sm:col-span-2" hint="Situation du locataire justifiant le recours au bail mobilité (art. 25-12 de la loi du 6 juillet 1989).">
-            <Select name="motifMobilite" vide="Choisir un motif…" options={MOTIFS_MOBILITE.map((m) => ({ value: m, label: m }))} defaultValue={valeurInitiale(state, "motifMobilite", initial.motifMobilite)} invalide={!!e.motifMobilite} />
+            <Select key={motifInitial} name="motifMobilite" vide="Choisir un motif…" options={MOTIFS_MOBILITE.map((m) => ({ value: m, label: m }))} defaultValue={motifInitial} invalide={!!e.motifMobilite} />
           </Field>
         )}
 
@@ -193,7 +201,7 @@ export function BailForm({
             <fieldset className="sm:col-span-2">
               <legend className="mb-1.5 block text-sm font-semibold text-navy-900">Indice de référence</legend>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Select name="irlTrimestre" aria-label="Trimestre de l'IRL de référence" vide="Trimestre…" options={trimestres} defaultValue={valeurInitiale(state, "irlTrimestre", initial.irlTrimestre)} invalide={!!e.irlTrimestre} />
+                <Select key={irlTrimestreInitial} name="irlTrimestre" aria-label="Trimestre de l'IRL de référence" vide="Trimestre…" options={trimestres} defaultValue={irlTrimestreInitial} invalide={!!e.irlTrimestre} />
                 <Input name="irlValeur" aria-label="Valeur de l'IRL de référence" inputMode="decimal" placeholder="Valeur, ex. : 145,17" defaultValue={valeurInitiale(state, "irlValeur", initial.irlValeur !== null && initial.irlValeur !== undefined ? String(initial.irlValeur).replace(".", ",") : "")} invalide={!!e.irlValeur} />
               </div>
               {e.irlTrimestre || e.irlValeur ? <p className="mt-1.5 text-xs text-red-600">{e.irlTrimestre ?? e.irlValeur}</p> : <p className="mt-1.5 text-xs text-slate-500">Dernier IRL publié par l'INSEE à la signature : trimestre et valeur.</p>}

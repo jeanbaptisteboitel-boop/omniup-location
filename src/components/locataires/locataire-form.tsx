@@ -21,12 +21,14 @@ export function LocataireForm({
 }) {
   const [state, formAction] = useActionState(action, null);
   const e = state?.errors ?? {};
+  // Après une erreur serveur, React réinitialise le formulaire : le <select> est remonté (key) sur la valeur re-soumise.
+  const civiliteInitiale = valeurInitiale(state, "civilite", initial.civilite);
   return (
     <form action={formAction} className="flex flex-col gap-[18px]">
       <FormMessage state={state} />
       <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
         <Field label="Civilité" name="civilite" error={e.civilite}>
-          <Select name="civilite" vide="—" options={CIVILITES.map((c) => ({ value: c, label: c }))} defaultValue={valeurInitiale(state, "civilite", initial.civilite)} invalide={!!e.civilite} />
+          <Select key={civiliteInitiale} name="civilite" vide="—" options={CIVILITES.map((c) => ({ value: c, label: c }))} defaultValue={civiliteInitiale} invalide={!!e.civilite} />
         </Field>
         <Field label="Prénom" name="prenom" requis error={e.prenom}>
           <Input name="prenom" defaultValue={valeurInitiale(state, "prenom", initial.prenom)} invalide={!!e.prenom} autoComplete="given-name" />

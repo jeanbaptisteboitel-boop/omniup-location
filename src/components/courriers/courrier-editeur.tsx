@@ -7,6 +7,7 @@ import { TYPES_COURRIER, options } from "@/lib/libelles";
 import { Field, FormActions, FormMessage, Input, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { Alerte, ButtonLink } from "@/components/ui";
 import { IconeEtincelle } from "@/components/icones";
+import { useVersion } from "@/components/baux/use-version";
 
 const OBJETS: Record<TypeCourrier, string> = {
   REVISION_LOYER: "Révision annuelle du loyer",
@@ -41,6 +42,8 @@ export function CourrierEditeur({
   const [objet, setObjet] = useState(valeurInitiale(etat, "objet", initial.objet || OBJETS[initial.type]));
   const [contenu, setContenu] = useState(valeurInitiale(etat, "contenu", initial.contenu));
   const e = etat?.errors ?? {};
+  // Le formulaire IA est remonté après chaque réponse : React réinitialise le formulaire soumis et le <select> contrôlé du type serait désynchronisé.
+  const versionIA = useVersion(etatIA);
 
   useEffect(() => {
     if (etatIA?.ok && etatIA.values?.texte) {
@@ -53,7 +56,7 @@ export function CourrierEditeur({
 
   return (
     <div className="flex flex-col gap-5">
-      <form action={generer} className="flex flex-col gap-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3.5">
+      <form key={versionIA} action={generer} className="flex flex-col gap-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3.5">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-800"><IconeEtincelle taille={15} /></span>
           <p className="text-sm font-bold text-navy-900">Rédiger le courrier avec l'IA</p>

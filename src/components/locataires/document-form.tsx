@@ -28,6 +28,7 @@ export function DocumentForm({
   const [generation, setGeneration] = useState(0);
   const ref = useRef<HTMLFormElement>(null);
   const e = state?.errors ?? {};
+  const categorie = valeurInitiale(state, "categorie", categorieInitiale ?? "PIECE_IDENTITE");
 
   useEffect(() => {
     if (state?.ok) {
@@ -70,7 +71,7 @@ export function DocumentForm({
       {erreurEnvoi && <Alerte ton="rouge">{erreurEnvoi}</Alerte>}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <Field label="Catégorie" name="categorie" requis error={e.categorie}>
-          <Select name="categorie" options={options(CATEGORIES_DOCUMENT)} defaultValue={valeurInitiale(state, "categorie", categorieInitiale ?? "PIECE_IDENTITE")} invalide={!!e.categorie} />
+          <Select key={categorie} name="categorie" options={options(CATEGORIES_DOCUMENT)} defaultValue={categorie} invalide={!!e.categorie} />
         </Field>
         <Field label="Libellé" name="libelle" error={e.libelle} hint="Facultatif · ex. : CNI recto-verso, Avis 2025 sur revenus 2024">
           <Input name="libelle" defaultValue={valeurInitiale(state, "libelle", "")} invalide={!!e.libelle} />

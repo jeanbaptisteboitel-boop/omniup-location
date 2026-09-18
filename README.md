@@ -94,6 +94,8 @@ npm run db:studio   # exploration de la base de données
 
 Pile technique : Next.js 15 (App Router, actions serveur), Prisma + PostgreSQL (Neon), Tailwind CSS 4, pdfkit, Resend (ou nodemailer), exceljs, SDK AWS S3 (Scaleway), SDK Anthropic, SDK Mistral.
 
+Interface : maquettes réalisées dans Claude Design à partir du brief `docs/prompt-claude-design.md` (registre « portail » de la charte OMNIUP : police Manrope chargée depuis Google Fonts, palette navy/cyan, composants du kit `src/components/ui.tsx` et `form.tsx`, icônes linéaires `src/components/icones.tsx`). Les 15 écrans (tableau de bord, patrimoine, locataires, baux, loyers, comptabilité, documents, outils, paramètres) suivent ces maquettes, avec une navigation en tiroir et des listes en cartes sur mobile.
+
 ## Sauvegarde
 
 En production, les données sont dans Neon (sauvegardes et branches gérées par Neon) et les fichiers dans le bucket Scaleway. En local, sauvegardez la base PostgreSQL et le dossier `storage/`.

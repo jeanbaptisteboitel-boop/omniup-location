@@ -28,6 +28,9 @@ export function RevisionForm({
   const [ancien, setAncien] = useState(valeurInitiale(state, "irlAncienValeur", irlValeur !== null ? String(irlValeur).replace(".", ",") : ""));
   const [nouveau, setNouveau] = useState(valeurInitiale(state, "irlNouveauValeur", ""));
   const trimestres = trimestresIRL(new Date().getFullYear()).map((t) => ({ value: t, label: t }));
+  // Après une erreur serveur, React réinitialise le formulaire : les <select> sont remontés (key) sur la valeur re-soumise.
+  const ancienTrimestre = valeurInitiale(state, "irlAncienTrimestre", irlTrimestre);
+  const nouveauTrimestre = valeurInitiale(state, "irlNouveauTrimestre", "");
 
   const a = parseMontant(ancien);
   const n = parseMontant(nouveau);
@@ -50,13 +53,13 @@ export function RevisionForm({
             <Input name="loyerActuel" value={formatEuros(loyerActuel)} readOnly disabled className="tabular-nums" />
           </Field>
           <Field label="Trimestre de référence" name="irlAncienTrimestre" error={e.irlAncienTrimestre}>
-            <Select name="irlAncienTrimestre" vide="—" options={trimestres} defaultValue={valeurInitiale(state, "irlAncienTrimestre", irlTrimestre)} invalide={!!e.irlAncienTrimestre} />
+            <Select key={ancienTrimestre} name="irlAncienTrimestre" vide="—" options={trimestres} defaultValue={ancienTrimestre} invalide={!!e.irlAncienTrimestre} />
           </Field>
           <Field label="Indice de référence" name="irlAncienValeur" requis error={e.irlAncienValeur} hint="IRL en vigueur à la signature ou lors de la dernière révision.">
             <Input name="irlAncienValeur" inputMode="decimal" value={ancien} onChange={(ev) => setAncien(ev.target.value)} invalide={!!e.irlAncienValeur} placeholder="ex. : 145,17" />
           </Field>
           <Field label="Trimestre du nouvel indice" name="irlNouveauTrimestre" error={e.irlNouveauTrimestre} hint="Même trimestre, un an plus tard.">
-            <Select name="irlNouveauTrimestre" vide="—" options={trimestres} defaultValue={valeurInitiale(state, "irlNouveauTrimestre", "")} invalide={!!e.irlNouveauTrimestre} />
+            <Select key={nouveauTrimestre} name="irlNouveauTrimestre" vide="—" options={trimestres} defaultValue={nouveauTrimestre} invalide={!!e.irlNouveauTrimestre} />
           </Field>
           <Field label="Nouvel indice" name="irlNouveauValeur" requis error={e.irlNouveauValeur} hint="Dernier IRL publié par l'INSEE (insee.fr).">
             <Input name="irlNouveauValeur" inputMode="decimal" value={nouveau} onChange={(ev) => setNouveau(ev.target.value)} invalide={!!e.irlNouveauValeur} placeholder="ex. : 147,10" />
