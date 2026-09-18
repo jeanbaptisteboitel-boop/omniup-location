@@ -1,85 +1,158 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { entierParam, type SearchParams } from "@/lib/params";
 import { CATEGORIES_DEPENSE } from "@/lib/libelles";
-import { formatEuros } from "@/lib/montants";
+import { aujourdhui, formatDate } from "@/lib/dates";
+import { arrondir2, formatEuros, somme } from "@/lib/montants";
 import { CATEGORIES_SYNTHESE, calculerSynthese } from "@/lib/synthese";
-import { Alerte, Card, PageHeader, Stat, Tableau, Td, Th } from "@/components/ui";
+import { ButtonLink, Card, CardHeader, EmptyState, PageHeader, Stat, Tableau, Td, Th } from "@/components/ui";
+import { IconeTelecharger } from "@/components/icones";
+import { Select } from "@/components/form";
+import { FiltresForm } from "@/components/filtres-form";
 import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Synthèse annuelle" };
 
+const LIGNE = "px-5 py-2.5 text-slate-600";
+const MONTANT = "px-5 py-2.5 text-right tabular-nums";
+const ENTETE = "py-2.5 text-xs font-semibold uppercase tracking-[.04em] text-slate-500";
+
 export default async function SynthesePage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const annee = entierParam(sp, "annee") ?? new Date().getFullYear();
-  const { lignes, total, annees } = await calculerSynthese(annee, await entiteCouranteId());
-  const categoriesUtiles = CATEGORIES_SYNTHESE.filter((c) => total.depenses[c] !== 0);
+  const auj = aujourdhui();
+  const anneeCourante = auj.getUTCFullYear();
+  const annee = entierParam(sp, "annee") ?? anneeCourante;
+  const entiteId = await entiteCouranteId();
+  const [{ lignes, total, annees }, appelsAnnee] = await Promise.all([
+    calculerSynthese(annee, entiteId),
+    prisma.appelLoyer.findMany({ where: { periode: { startsWith: `${annee}-` }, bail: { entiteId } }, select: { total: true, paiements: { select: { montant: true } } } }),
+  ]);
+  // Loyers appelés dans l'année et non encaissés (information, hors total des recettes).
+  const impayes = somme(appelsAnnee.map((a) => Math.max(0, arrondir2(a.total - somme(a.paiements.map((p) => p.montant))))));
+  const interetsEtAssurance = arrondir2(total.interets + total.assurance + total.depenses.INTERETS_EMPRUNT);
+  const depensesDeductibles = arrondir2(total.totalDepenses - total.depenses.INTERETS_EMPRUNT);
+  const categories = CATEGORIES_SYNTHESE.filter((c) => c !== "INTERETS_EMPRUNT" && total.depenses[c] !== 0);
+  const totalDepenses = arrondir2(depensesDeductibles + interetsEtAssurance);
+  // Années proposées : celles connues par la synthèse, plus l'année demandée dans l'URL si elle n'en fait pas partie.
+  const anneesProposees = Array.from(new Set([...annees, annee])).sort((x, y) => y - x);
 
   return (
     <>
       <PageHeader
-        titre={`Synthèse ${annee}`}
-        sousTitre="Recettes encaissées et dépenses par bien : état préparatoire à la déclaration des revenus fonciers (2044) ou à la comptabilité de la SCI."
+        titre="Synthèse annuelle"
+        sousTitre="Préparation de la déclaration des revenus fonciers (formulaire 2044)."
         actions={
-          <form method="get" className="flex items-center gap-2 text-sm">
-            <label htmlFor="annee" className="text-slate-500">Année</label>
-            <select id="annee" name="annee" defaultValue={annee} className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm">
-              {annees.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <button type="submit" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50">Afficher</button>
-          </form>
+          <>
+            <FiltresForm>
+              <div>
+                <Select name="annee" aria-label="Année" defaultValue={String(annee)} options={anneesProposees.map((a) => ({ value: String(a), label: String(a) }))} className="font-semibold" />
+              </div>
+            </FiltresForm>
+            <ButtonLink href={`/api/export/encaissements.csv?annee=${annee}`} variante="secondary" title={`Encaissements ${annee} au format CSV`}><IconeTelecharger taille={16} />Encaissements CSV</ButtonLink>
+            <ButtonLink href={`/api/export/depenses.csv?annee=${annee}`} title={`Dépenses ${annee} au format CSV`}><IconeTelecharger taille={16} />Dépenses CSV</ButtonLink>
+          </>
         }
       />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat libelle="Recettes encaissées" valeur={formatEuros(total.recettes)} detail={`dont loyers ${formatEuros(total.loyers)}`} ton="vert" />
-        <Stat libelle="Dépenses" valeur={formatEuros(total.totalDepenses)} ton="orange" />
-        <Stat libelle="Intérêts et assurance d'emprunt" valeur={formatEuros(total.interets + total.assurance)} detail={`intérêts ${formatEuros(total.interets)}`} ton="bleu" />
-        <Stat libelle="Résultat" valeur={formatEuros(total.resultat)} ton={total.resultat >= 0 ? "vert" : "rouge"} />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat libelle={`Recettes ${annee}`} valeur={formatEuros(total.loyers)} detail="loyers encaissés hors charges" ton="cyan" />
+        <Stat libelle="Dépenses déductibles" valeur={formatEuros(depensesDeductibles)} detail="hors intérêts d'emprunt" />
+        <Stat libelle="Intérêts d'emprunt" valeur={formatEuros(interetsEtAssurance)} detail="assurance comprise" />
+        <Stat libelle="Résultat foncier" valeur={formatEuros(total.resultat)} detail={annee >= anneeCourante ? `provisoire au ${formatDate(auj)} · régime réel` : "exercice clos · régime réel"} sombre />
       </div>
-      <div className="mb-4 flex flex-wrap gap-4 text-xs">
-        <Link href={`/api/export/encaissements.csv?annee=${annee}`} className="text-navy-800 underline">Exporter les encaissements {annee} (CSV)</Link>
-        <Link href={`/api/export/depenses.csv?annee=${annee}`} className="text-navy-800 underline">Exporter les dépenses {annee} (CSV)</Link>
+
+      <div className="mb-6 grid grid-cols-1 items-start gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader titre="Recettes" />
+          <table className="w-full text-sm">
+            <tbody>
+              <tr>
+                <td className={LIGNE}>Loyers hors charges encaissés</td>
+                <td className={MONTANT}>{formatEuros(total.loyers)}</td>
+              </tr>
+              <tr className="border-t border-slate-100">
+                <td className={LIGNE}>Provisions sur charges encaissées</td>
+                <td className={MONTANT}>{formatEuros(total.charges)}</td>
+              </tr>
+              <tr className="border-t border-slate-100">
+                <td className={LIGNE}>Loyers appelés non encaissés</td>
+                <td className={`${MONTANT} text-red-700`}>{formatEuros(impayes)}</td>
+              </tr>
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td className="px-5 py-3 font-bold text-navy-900">Total recettes</td>
+                <td className="px-5 py-3 text-right font-bold tabular-nums">{formatEuros(total.recettes)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
+        <Card>
+          <CardHeader titre="Dépenses par catégorie" />
+          <table className="w-full text-sm">
+            <tbody>
+              {categories.length === 0 && interetsEtAssurance === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-5 py-2.5 text-slate-400">Aucune dépense enregistrée en {annee}.</td>
+                </tr>
+              )}
+              {categories.map((c, i) => (
+                <tr key={c} className={i > 0 ? "border-t border-slate-100" : ""}>
+                  <td className={LIGNE}>{CATEGORIES_DEPENSE[c]}</td>
+                  <td className={MONTANT}>{formatEuros(total.depenses[c])}</td>
+                </tr>
+              ))}
+              {(categories.length > 0 || interetsEtAssurance !== 0) && (
+                <tr className={categories.length > 0 ? "border-t border-slate-100" : ""}>
+                  <td className={LIGNE}>Intérêts d'emprunt et assurance</td>
+                  <td className={MONTANT}>{formatEuros(interetsEtAssurance)}</td>
+                </tr>
+              )}
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td className="px-5 py-3 font-bold text-navy-900">Total dépenses</td>
+                <td className="px-5 py-3 text-right font-bold tabular-nums">{formatEuros(totalDepenses)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
       </div>
+
       {lignes.length === 0 ? (
-        <Alerte ton="bleu">Aucun bien, encaissement ou dépense pour {annee}.</Alerte>
+        <EmptyState titre={`Aucune donnée pour ${annee}`} description="Aucun bien, encaissement ou dépense n'est enregistré sur cette année." />
       ) : (
         <Card>
+          <CardHeader titre="Résultat par bien" description="Lots, puis immeubles pour les dépenses communes." />
           <Tableau>
             <thead className="bg-slate-50">
               <tr>
-                <Th>Bien</Th>
-                <Th droite>Loyers</Th>
-                <Th droite>Charges</Th>
-                {categoriesUtiles.map((c) => <Th key={c} droite>{CATEGORIES_DEPENSE[c]}</Th>)}
+                <th scope="col" className={`${ENTETE} px-5 text-left`}>Bien</th>
+                <Th droite>Recettes</Th>
+                <Th droite>Dépenses</Th>
                 <Th droite>Intérêts</Th>
-                <Th droite>Assurance emprunt</Th>
-                <Th droite>Résultat</Th>
+                <th scope="col" className={`${ENTETE} px-5 text-right`}>Résultat</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {lignes.map((l) => (
                 <tr key={l.cle} className="hover:bg-slate-50">
-                  <Td>
-                    <Link href={l.type === "lot" ? `/lots/${l.id}` : `/immeubles/${l.id}`} className="font-medium text-navy-800 hover:underline">{l.nom}</Link>
-                    <span className="block text-xs text-slate-500">{l.type === "immeuble" ? "Immeuble (dépenses communes) · " : ""}{l.ville}{l.bailleur ? ` · ${l.bailleur}` : ""}</span>
-                  </Td>
-                  <Td droite>{formatEuros(l.loyers)}</Td>
-                  <Td droite>{formatEuros(l.charges)}</Td>
-                  {categoriesUtiles.map((c) => <Td key={c} droite>{l.depenses[c] ? formatEuros(l.depenses[c]) : <span className="text-slate-300">—</span>}</Td>)}
-                  <Td droite>{l.interets ? formatEuros(l.interets) : <span className="text-slate-300">—</span>}</Td>
-                  <Td droite>{l.assurance ? formatEuros(l.assurance) : <span className="text-slate-300">—</span>}</Td>
-                  <Td droite className={l.resultat < 0 ? "text-red-700" : ""}><strong>{formatEuros(l.resultat)}</strong></Td>
+                  <td className="px-5 py-3 align-top">
+                    <Link href={l.type === "lot" ? `/lots/${l.id}` : `/immeubles/${l.id}`} className="font-semibold text-navy-900 hover:underline">{l.nom}</Link>
+                    <span className="block text-xs text-slate-500">{l.type === "immeuble" ? "Immeuble · " : ""}{l.ville}{l.bailleur ? ` · ${l.bailleur}` : ""}</span>
+                  </td>
+                  <Td droite>{formatEuros(l.recettes)}</Td>
+                  <Td droite>{formatEuros(l.totalDepenses)}</Td>
+                  <Td droite>{formatEuros(arrondir2(l.interets + l.assurance))}</Td>
+                  <td className={`px-5 py-3 text-right align-top font-bold tabular-nums ${l.resultat >= 0 ? "text-emerald-800" : "text-red-700"}`}>{formatEuros(l.resultat)}</td>
                 </tr>
               ))}
-              <tr className="bg-slate-50 font-semibold">
-                <Td>Total</Td>
-                <Td droite>{formatEuros(total.loyers)}</Td>
-                <Td droite>{formatEuros(total.charges)}</Td>
-                {categoriesUtiles.map((c) => <Td key={c} droite>{formatEuros(total.depenses[c])}</Td>)}
-                <Td droite>{formatEuros(total.interets)}</Td>
-                <Td droite>{formatEuros(total.assurance)}</Td>
-                <Td droite>{formatEuros(total.resultat)}</Td>
-              </tr>
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-slate-200 bg-slate-50">
+                <td className="px-5 py-2.5 font-semibold text-slate-600">Total</td>
+                <td className="px-4 py-2.5 text-right font-bold tabular-nums">{formatEuros(total.recettes)}</td>
+                <td className="px-4 py-2.5 text-right font-bold tabular-nums">{formatEuros(total.totalDepenses)}</td>
+                <td className="px-4 py-2.5 text-right font-bold tabular-nums">{formatEuros(arrondir2(total.interets + total.assurance))}</td>
+                <td className={`px-5 py-2.5 text-right font-bold tabular-nums ${total.resultat >= 0 ? "text-emerald-800" : "text-red-700"}`}>{formatEuros(total.resultat)}</td>
+              </tr>
+            </tfoot>
           </Tableau>
         </Card>
       )}

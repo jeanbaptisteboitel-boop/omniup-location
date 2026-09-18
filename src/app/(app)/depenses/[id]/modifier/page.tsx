@@ -16,8 +16,8 @@ export default async function ModifierDepensePage({ params }: { params: ParamsId
   if (!d) notFound();
   return (
     <>
-      <PageHeader titre={`Modifier « ${d.libelle} »`} retour={{ href: "/depenses", libelle: "Dépenses" }} />
-      <Card>
+      <PageHeader titre={`Modifier « ${d.libelle} »`} sousTitre="Charges déductibles des revenus fonciers, rattachées à un immeuble ou à un lot." retour={{ href: "/depenses", libelle: "Dépenses" }} />
+      <Card className="max-w-3xl">
         <CardBody>
           <DepenseForm action={modifierDepense.bind(null, d.id)} preparer={preparerEnvoiJustificatif} initial={d} affectations={affectations} annulerHref="/depenses" />
         </CardBody>

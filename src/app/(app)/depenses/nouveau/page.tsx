@@ -14,10 +14,11 @@ export default async function NouvelleDepensePage({ searchParams }: { searchPara
   const immeubleId = entierParam(sp, "immeubleId");
   const affectationInitiale = lotId ? `lot:${lotId}` : immeubleId ? `immeuble:${immeubleId}` : undefined;
   const retour = lotId ? `/lots/${lotId}` : immeubleId ? `/immeubles/${immeubleId}` : texteParam(sp, "retour") ?? undefined;
+  const libelleRetour = lotId ? "Lot" : immeubleId ? "Immeuble" : "Dépenses";
   return (
     <>
-      <PageHeader titre="Nouvelle dépense" retour={{ href: retour ?? "/depenses", libelle: "Retour" }} />
-      <Card>
+      <PageHeader titre="Nouvelle dépense" sousTitre="Charges déductibles des revenus fonciers, rattachées à un immeuble ou à un lot." retour={{ href: retour ?? "/depenses", libelle: libelleRetour }} />
+      <Card className="max-w-3xl">
         <CardBody>
           <DepenseForm action={creerDepense} preparer={preparerEnvoiJustificatif} initial={{}} affectations={affectations} affectationInitiale={affectationInitiale} annulerHref={retour ?? "/depenses"} retour={retour} />
         </CardBody>

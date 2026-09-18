@@ -15,10 +15,10 @@ export default async function ModifierEmpruntPage({ params }: { params: ParamsId
   if (!e) notFound();
   return (
     <>
-      <PageHeader titre={`Modifier ${e.libelle}`} retour={{ href: `/emprunts/${e.id}`, libelle: e.libelle }} />
-      <Card>
+      <PageHeader titre={`Modifier ${e.libelle}`} sousTitre={e.banque ?? "Banque non renseignée"} retour={{ href: `/emprunts/${e.id}`, libelle: e.libelle }} />
+      <Card className="max-w-3xl">
         <CardBody>
-          <EmpruntForm action={modifierEmprunt.bind(null, e.id)} initial={e} affectations={affectations} annulerHref={`/emprunts/${e.id}`} />
+          <EmpruntForm action={modifierEmprunt.bind(null, e.id)} initial={e} affectations={affectations} annulerHref={`/emprunts/${e.id}`} libelleEnvoi="Enregistrer les modifications" />
         </CardBody>
       </Card>
     </>

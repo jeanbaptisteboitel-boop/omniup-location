@@ -4,101 +4,181 @@ import { entierParam, texteParam, type SearchParams } from "@/lib/params";
 import { nomComplet } from "@/lib/libelles";
 import { aujourdhui, formatDate, formatPeriode, periodeDe } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
-import { STATUTS_APPEL, etatAppel, numeroAppel, type StatutAppel } from "@/lib/loyers";
-import { synchroniserAppelsLoyer } from "@/lib/loyers-sync";
+import { etatAppel, numeroAppel, type StatutAppel } from "@/lib/loyers";
+import { joursAvanceAvis, synchroniserAppelsLoyer } from "@/lib/loyers-sync";
 import { includeAppel } from "@/lib/pdf/donnees";
 import { mailConfigure } from "@/lib/mail";
 import { envoyerAvisEnAttente, genererAppelsMaintenant } from "@/actions/loyers";
-import { Badge, Button, ButtonLink, Card, EmptyState, PageHeader, Stat, Tableau, Td, Th } from "@/components/ui";
+import { Button, ButtonLink, Card, EmptyState, Filtres, PageHeader, Tableau, TableauPied, Td, Th } from "@/components/ui";
+import { Select } from "@/components/form";
+import { FiltresForm } from "@/components/filtres-form";
 import { Flash } from "@/components/flash";
-import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
+import { BadgeStatutAppel, LIBELLES_STATUT_APPEL } from "@/components/loyers/badge-statut";
+import { EtatAvis, EtatQuittance } from "@/components/loyers/etat-envoi";
 import { entiteCouranteId } from "@/lib/entite";
 
 export const metadata = { title: "Loyers et quittances" };
 
-const STATUTS: StatutAppel[] = ["A_PAYER", "EN_RETARD", "PARTIEL", "PAYE"];
+const STATUTS: StatutAppel[] = ["PAYE", "PARTIEL", "A_PAYER", "EN_RETARD"];
 
 export default async function LoyersPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   await synchroniserAppelsLoyer();
   const auj = aujourdhui();
-  const filtreStatut = texteParam(sp, "statut") as StatutAppel | null;
+  const statutDemande = texteParam(sp, "statut") as StatutAppel | null;
+  const filtreStatut = statutDemande && STATUTS.includes(statutDemande) ? statutDemande : null;
   const bailId = entierParam(sp, "bailId");
+  const lotId = entierParam(sp, "lotId");
   const periode = texteParam(sp, "periode");
+  const entiteId = await entiteCouranteId();
 
-  const appels = await prisma.appelLoyer.findMany({ where: { bail: { entiteId: await entiteCouranteId() }, ...(bailId ? { bailId } : {}), ...(periode ? { periode } : {}) }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] });
+  // Tous les appels de l'entité : le résumé et les listes déroulantes portent sur l'ensemble, le tableau sur la sélection.
+  const appels = await prisma.appelLoyer.findMany({ where: { bail: { entiteId } }, include: includeAppel, orderBy: [{ periode: "desc" }, { dateEcheance: "asc" }, { id: "desc" }] });
   const lignes = appels.map((a) => ({ a, etat: etatAppel(a, auj) }));
-  const filtrees = filtreStatut && STATUTS.includes(filtreStatut) ? lignes.filter((l) => l.etat.statut === filtreStatut) : lignes;
+  const filtrees = lignes.filter(
+    ({ a, etat }) => (!filtreStatut || etat.statut === filtreStatut) && (!bailId || a.bailId === bailId) && (!lotId || a.bail.lotId === lotId) && (!periode || a.periode === periode),
+  );
+  const filtreActif = !!(filtreStatut || bailId || lotId || periode);
 
   const periodeCourante = periodeDe(auj);
-  const enRetard = lignes.filter((l) => l.etat.statut === "EN_RETARD");
-  const aEncaisser = somme(lignes.filter((l) => l.etat.reste > 0).map((l) => l.etat.reste));
-  const encaisseMois = somme(lignes.flatMap((l) => l.a.paiements.filter((p) => periodeDe(p.date) === periodeCourante).map((p) => p.montant)));
-  const avisNonEnvoyes = lignes.filter((l) => !l.a.dateEnvoiAvis && l.a.bail.locataire.email).length;
-  const compteur = (s: StatutAppel) => lignes.filter((l) => l.etat.statut === s).length;
-  const lien = (params: Record<string, string | null>) => {
-    const q = new URLSearchParams();
-    const base: Record<string, string | null> = { statut: filtreStatut, bailId: bailId ? String(bailId) : null, periode, ...params };
-    for (const [k, v] of Object.entries(base)) if (v) q.set(k, v);
-    const s = q.toString();
-    return `/loyers${s ? `?${s}` : ""}`;
-  };
+  const duMois = lignes.filter((l) => l.a.periode === periodeCourante);
+  const appelesDuMois = somme(duMois.map((l) => l.a.total));
+  const encaissesDuMois = somme(duMois.map((l) => l.etat.regle));
+  const enRetardDuMois = duMois.filter((l) => l.etat.statut === "EN_RETARD").length;
+  const avisEnAttente = lignes.filter((l) => !l.a.dateEnvoiAvis && l.a.bail.locataire.email).length;
+
+  const periodes = Array.from(new Set(lignes.map((l) => l.a.periode))).sort((x, y) => (x < y ? 1 : -1));
+  const lots = Array.from(new Map(lignes.map((l) => [l.a.bail.lotId, l.a.bail.lot.nom])).entries())
+    .map(([id, nom]) => ({ value: String(id), label: nom }))
+    .sort((x, y) => x.label.localeCompare(y.label, "fr"));
+
+  const totalMontant = somme(filtrees.map((l) => l.a.total));
+  const totalRegle = somme(filtrees.map((l) => l.etat.regle));
+  const pluriel = filtrees.length > 1 ? "s" : "";
 
   return (
     <>
       <PageHeader
         titre="Loyers et quittances"
-        sousTitre="Appels de loyer émis automatiquement pour les baux signés, paiements et quittances."
+        sousTitre={`${formatPeriode(periodeCourante)} : ${formatEuros(appelesDuMois)} appelés · ${formatEuros(encaissesDuMois)} encaissés · ${enRetardDuMois} en retard`}
         actions={
           <>
-            <form action={genererAppelsMaintenant}><Button type="submit" variante="secondary">Émettre les appels du moment</Button></form>
-            {mailConfigure() && avisNonEnvoyes > 0 && (
-              <form action={envoyerAvisEnAttente}><Button type="submit" variante="accent">Envoyer les {avisNonEnvoyes} avis non envoyés</Button></form>
-            )}
+            {mailConfigure() &&
+              (avisEnAttente > 0 ? (
+                <form action={envoyerAvisEnAttente}>
+                  <Button type="submit" variante="secondary">Envoyer les {avisEnAttente} avis en attente</Button>
+                </form>
+              ) : (
+                <Button type="button" variante="secondary" disabled title="Aucun avis d'échéance en attente d'envoi">Tous les avis sont envoyés</Button>
+              ))}
+            <form action={genererAppelsMaintenant}>
+              <Button type="submit">Émettre les appels du moment</Button>
+            </form>
           </>
         }
       />
       <Flash sp={sp} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat libelle="Reste à encaisser" valeur={formatEuros(aEncaisser)} detail={`${lignes.filter((l) => l.etat.reste > 0).length} échéance(s) non soldée(s)`} ton="bleu" />
-        <Stat libelle="En retard" valeur={formatEuros(somme(enRetard.map((l) => l.etat.reste)))} detail={`${enRetard.length} échéance(s) dépassée(s)`} ton={enRetard.length ? "rouge" : "vert"} />
-        <Stat libelle={`Encaissé en ${formatPeriode(periodeCourante).toLowerCase()}`} valeur={formatEuros(encaisseMois)} ton="vert" />
-      </div>
-
-      <nav className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <Link href={lien({ statut: null })} className={`rounded-full px-3 py-1 ${!filtreStatut ? "bg-navy-800 text-white" : "bg-white text-navy-800 ring-1 ring-slate-200 hover:bg-slate-50"}`}>Tous ({lignes.length})</Link>
-        {STATUTS.map((s) => (
-          <Link key={s} href={lien({ statut: s })} className={`rounded-full px-3 py-1 ${filtreStatut === s ? "bg-navy-800 text-white" : "bg-white text-navy-800 ring-1 ring-slate-200 hover:bg-slate-50"}`}>
-            {STATUTS_APPEL[s]} ({compteur(s)})
-          </Link>
-        ))}
-        {(bailId || periode) && <Link href="/loyers" className="ml-2 text-xs text-slate-500 underline">Retirer les filtres{bailId ? " (bail)" : ""}{periode ? ` (${formatPeriode(periode)})` : ""}</Link>}
-      </nav>
+      <Filtres>
+        <FiltresForm>
+          {bailId && <input type="hidden" name="bailId" value={bailId} />}
+          <div>
+            <Select name="periode" aria-label="Période" defaultValue={periode ?? ""} vide="Toutes les périodes" options={periodes.map((p) => ({ value: p, label: formatPeriode(p) }))} />
+          </div>
+          <div>
+            <Select name="statut" aria-label="Statut" defaultValue={filtreStatut ?? ""} vide="Tous les statuts" options={STATUTS.map((s) => ({ value: s, label: LIBELLES_STATUT_APPEL[s] }))} />
+          </div>
+          <div>
+            <Select name="lotId" aria-label="Lot" defaultValue={lotId ? String(lotId) : ""} vide="Tous les lots" options={lots} className="min-w-[200px]" />
+          </div>
+          {filtreActif && <ButtonLink href="/loyers" variante="ghost">Réinitialiser</ButtonLink>}
+        </FiltresForm>
+      </Filtres>
 
       {filtrees.length === 0 ? (
-        <EmptyState titre="Aucun appel de loyer" description={lignes.length === 0 ? "Les appels de loyer sont émis automatiquement pour chaque bail signé, quelques jours avant l'échéance." : "Aucune échéance ne correspond à ce filtre."} action={lignes.length === 0 ? <ButtonLink href="/baux">Voir les baux</ButtonLink> : undefined} />
+        <EmptyState
+          titre="Aucun appel de loyer"
+          description={
+            lignes.length === 0
+              ? `Les appels de loyer sont émis automatiquement pour chaque bail signé, ${joursAvanceAvis()} jours avant le début du mois.`
+              : `Aucune échéance ne correspond à ces filtres. Les appels sont émis automatiquement pour les baux signés, ${joursAvanceAvis()} jours avant le début de chaque mois.`
+          }
+          action={lignes.length === 0 ? <ButtonLink href="/baux" variante="secondary">Voir les baux</ButtonLink> : <ButtonLink href="/loyers" variante="secondary">Réinitialiser les filtres</ButtonLink>}
+        />
       ) : (
-        <Card>
-          <Tableau>
-            <thead className="bg-slate-50"><tr><Th>Période</Th><Th>Lot / locataire</Th><Th>Échéance</Th><Th droite>Montant</Th><Th droite>Réglé</Th><Th>Statut</Th><Th>Avis</Th><Th>Quittance</Th><Th /></tr></thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtrees.map(({ a, etat }) => (
-                <tr key={a.id} className="hover:bg-slate-50">
-                  <Td><Link href={`/loyers/${a.id}`} className="font-medium text-navy-800 hover:underline">{formatPeriode(a.periode)}</Link><span className="block text-xs text-slate-500">{numeroAppel(a.id)}{a.prorata ? " · prorata" : ""}</span></Td>
-                  <Td><Link href={`/baux/${a.bailId}`} className="hover:underline">{a.bail.lot.nom}</Link><span className="block text-xs text-slate-500">{nomComplet(a.bail.locataire)}</span></Td>
-                  <Td>{formatDate(a.dateEcheance)}</Td>
-                  <Td droite>{formatEuros(a.total)}</Td>
-                  <Td droite>{formatEuros(etat.regle)}</Td>
-                  <Td><BadgeStatutAppel statut={etat.statut} /></Td>
-                  <Td>{a.dateEnvoiAvis ? <Badge ton="vert">Envoyé {formatDate(a.dateEnvoiAvis)}</Badge> : <Badge ton="gris">À envoyer</Badge>}</Td>
-                  <Td>{a.dateEnvoiQuittance ? <Badge ton="vert">Envoyée {formatDate(a.dateEnvoiQuittance)}</Badge> : etat.statut === "PAYE" ? <Badge ton="orange">À envoyer</Badge> : <span className="text-xs text-slate-400">—</span>}</Td>
-                  <Td droite><ButtonLink href={`/loyers/${a.id}`} taille="sm" variante="secondary">Détail</ButtonLink></Td>
+        <>
+          {/* Tableau (écrans moyens et larges) */}
+          <Card className="hidden md:block">
+            <Tableau>
+              <thead className="bg-slate-50">
+                <tr>
+                  <Th>Période</Th>
+                  <Th>Lot / locataire</Th>
+                  <Th>Échéance</Th>
+                  <Th droite>Montant</Th>
+                  <Th droite>Réglé</Th>
+                  <Th>Statut</Th>
+                  <Th>Avis</Th>
+                  <Th>Quittance</Th>
                 </tr>
-              ))}
-            </tbody>
-          </Tableau>
-        </Card>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtrees.map(({ a, etat }) => (
+                  <tr key={a.id} className="hover:bg-slate-50">
+                    <Td className="whitespace-nowrap">
+                      <Link href={`/loyers/${a.id}`} className="font-semibold text-navy-900 hover:underline">{formatPeriode(a.periode)}</Link>
+                      <span className="block text-xs text-slate-500">{numeroAppel(a.id)}{a.prorata ? " · prorata" : ""}</span>
+                    </Td>
+                    <Td>
+                      <Link href={`/baux/${a.bailId}`} className="font-semibold text-navy-900 hover:underline">{a.bail.lot.nom}</Link>
+                      <span className="block text-xs text-slate-500">{nomComplet(a.bail.locataire)}</span>
+                    </Td>
+                    <Td className="text-slate-600 tabular-nums">{formatDate(a.dateEcheance)}</Td>
+                    <Td droite className="font-semibold">{formatEuros(a.total)}</Td>
+                    <Td droite className="text-slate-600">{formatEuros(etat.regle)}</Td>
+                    <Td><BadgeStatutAppel statut={etat.statut} /></Td>
+                    <Td className="whitespace-nowrap"><EtatAvis date={a.dateEnvoiAvis} /></Td>
+                    <Td className="whitespace-nowrap"><EtatQuittance date={a.dateEnvoiQuittance} paye={etat.statut === "PAYE"} /></Td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 bg-slate-50">
+                  <td colSpan={3} className="px-4 py-2.5 text-[13px] font-semibold text-slate-600">{filtrees.length} échéance{pluriel}</td>
+                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">{formatEuros(totalMontant)}</td>
+                  <td className="px-4 py-2.5 text-right font-bold tabular-nums">{formatEuros(totalRegle)}</td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
+            </Tableau>
+            <TableauPied>{filtrees.length} échéance{pluriel} · page 1 sur 1</TableauPied>
+          </Card>
+
+          {/* Cartes empilées (mobile) */}
+          <div className="flex flex-col gap-3.5 md:hidden">
+            {filtrees.map(({ a, etat }) => (
+              <Link key={a.id} href={`/loyers/${a.id}`} className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-card">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-navy-900">{a.bail.lot.nom}</div>
+                    <div className="text-xs text-slate-500">{nomComplet(a.bail.locataire)} · {formatPeriode(a.periode)}</div>
+                  </div>
+                  <BadgeStatutAppel statut={etat.statut} />
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs text-slate-500">
+                  <div>Échéance<br /><strong className="text-[13px] text-slate-900">{formatDate(a.dateEcheance)}</strong></div>
+                  <div>Montant<br /><strong className="text-[13px] text-slate-900 tabular-nums">{formatEuros(a.total)}</strong></div>
+                  <div>Réglé<br /><strong className="text-[13px] text-slate-900 tabular-nums">{formatEuros(etat.regle)}</strong></div>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
+                  <EtatAvis date={a.dateEnvoiAvis} className="text-xs" />
+                  <EtatQuittance date={a.dateEnvoiQuittance} paye={etat.statut === "PAYE"} className="text-xs" />
+                </div>
+              </Link>
+            ))}
+            <p className="text-center text-[13px] text-slate-500">{filtrees.length} échéance{pluriel} · {formatEuros(totalMontant)} appelés · {formatEuros(totalRegle)} réglés</p>
+          </div>
+        </>
       )}
     </>
   );

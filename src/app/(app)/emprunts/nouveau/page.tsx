@@ -13,10 +13,10 @@ export default async function NouvelEmpruntPage({ searchParams }: { searchParams
   const immeubleId = entierParam(sp, "immeubleId");
   return (
     <>
-      <PageHeader titre="Nouvel emprunt" retour={{ href: "/emprunts", libelle: "Emprunts" }} />
-      <Card>
+      <PageHeader titre="Nouvel emprunt" sousTitre="Les intérêts et l'assurance sont déductibles des revenus fonciers." retour={{ href: "/emprunts", libelle: "Emprunts" }} />
+      <Card className="max-w-3xl">
         <CardBody>
-          <EmpruntForm action={creerEmprunt} initial={{}} affectations={affectations} affectationInitiale={lotId ? `lot:${lotId}` : immeubleId ? `immeuble:${immeubleId}` : undefined} annulerHref="/emprunts" />
+          <EmpruntForm action={creerEmprunt} initial={{}} affectations={affectations} affectationInitiale={lotId ? `lot:${lotId}` : immeubleId ? `immeuble:${immeubleId}` : undefined} annulerHref="/emprunts" libelleEnvoi="Créer l'emprunt" />
         </CardBody>
       </Card>
     </>
