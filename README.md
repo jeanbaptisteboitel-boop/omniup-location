@@ -11,13 +11,14 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Location**
 - Locataires : nom, prénom, adresse, téléphone, email, et dossier de candidature : pièces d'identité, avis d'imposition, lettres de recommandation, justificatifs de domicile, justificatifs de revenus (PDF ou images).
-- Baux reliant un lot et un ou plusieurs locataires (couple, colocation : titulaires solidaires, chacun destinataire des avis, quittances et courriers) : **non meublé**, **meublé** ou **bail mobilité**, avec les règles légales de chaque type (durée par défaut, plafond du dépôt de garantie, charges au forfait, motif du bail mobilité).
+- Baux reliant un lot et un ou plusieurs locataires (couple, colocation : titulaires solidaires, chacun destinataire des avis, quittances et courriers) : **non meublé**, **meublé** ou **bail mobilité** (loi de 1989), **bail commercial** (9 ans ou dérogatoire), **bail professionnel** (6 ans) et **location meublée de tourisme** (90 jours au plus), avec les règles de chaque type (durée par défaut, plafond ou liberté du dépôt de garantie, charges au forfait, motif du bail mobilité, indice de révision).
 - Cycle de vie : brouillon → en signature (Omniup Sign) → signé → terminé.
 - Contrat : rédaction manuelle ou par l'assistant IA, export PDF à faire signer.
 - Révision annuelle du loyer sur l'IRL avec historique, courrier de notification ; le dernier IRL publié est récupéré automatiquement auprès de l'INSEE (service de données public, sans clé) et proposé à la signature comme à la révision.
 
 **Loyers**
 - Appels de loyer (avis d'échéance) émis automatiquement pour chaque bail signé, avec prorata temporis en début et fin de bail.
+- **TVA sur les loyers** : le bailleur opte sur l'immeuble (CGI, art. 260 2°), puis sur chaque lot concerné ; le bail d'un local commercial ou professionnel peut alors être soumis à la TVA à 20 %, une location meublée de tourisme avec prestations para-hôtelières à 10 %. Les locations à usage d'habitation restent exonérées, sans option possible. Loyer et charges sont saisis hors taxes ; appels, avis d'échéance (qui tiennent lieu de facture, avec le numéro de TVA du bailleur), quittances, emails et espaces locataire et propriétaire présentent le hors taxes, la TVA et le TTC ; la synthèse annuelle et l'export des encaissements isolent la TVA collectée.
 - PDF de l'avis d'échéance, envoi par email, enregistrement des paiements (virement, prélèvement, chèque, espèces).
 - Quittance de loyer en PDF dès le paiement intégral (reçu en cas de paiement partiel), envoi par email.
 - Relances pour loyer impayé (courrier amiable ou mise en demeure).
@@ -26,6 +27,7 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 - Dépenses par lot ou par immeuble : réparation et entretien, amélioration, gestion locative, copropriété, assurance propriétaire non occupant, taxe foncière, intérêts, autres, avec justificatif.
 - Emprunts : échéancier généré à partir des caractéristiques du prêt ou importé depuis le tableau d'amortissement de la banque (CSV, Excel, PDF ou image via l'IA) pour constater les intérêts et l'assurance emprunteur.
 - Synthèse annuelle recettes / dépenses par bien (état préparatoire à la déclaration 2044 ou à la comptabilité de la SCI), exports CSV.
+- **Aide au remplissage de la déclaration 2044** (revenus fonciers au régime réel) : pour l'année choisie, une colonne par immeuble (ou lot isolé) avec les lignes 211 à 263 en euros entiers, le forfait de 20 € par local, le détail des travaux (rubrique 400) et des intérêts d'emprunt (rubrique 410), le calcul du résultat et sa répartition entre les cases 4BA, 4BB et 4BC de la 2042 (plafond de 10 700 €), la comparaison avec le micro-foncier, les locations meublées écartées (BIC) et les dépenses à affecter à la main ; état exportable en PDF.
 
 **Modèles de documents** : 26 modèles fournis par défaut, modifiables et réinitialisables (baux d'habitation vide et meublé, bail mobilité, bail commercial, bail professionnel, bail dérogatoire, garage ou parking, location saisonnière ; avenants ; renouvellements ; congés et résiliations ; acte de cautionnement solidaire ; convention d'occupation précaire, location-gérance, domiciliation), plus vos propres modèles. Les variables ({{bail.loyerHC}}, {{locataire.nomComplet}}…) sont remplies avec les données du bail ; le document généré se complète, s'adapte avec l'IA, s'exporte en PDF et s'envoie par email.
 

@@ -6,12 +6,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
-import { analyser, zBool, zCodePostal, zEntierOpt, zEnum, zIdOpt, zMontantOpt, zNombreOpt, zTexte, zTexteOpt } from "@/lib/validation";
+import { analyser, zBool, zCodePostal, zDateOpt, zEntierOpt, zEnum, zIdOpt, zMontantOpt, zNombreOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
 import { exigerEcriture } from "@/lib/droits";
 
 const schemaLot = z.object({
-  type: zEnum(["APPARTEMENT", "MAISON"]),
+  type: zEnum(["APPARTEMENT", "MAISON", "LOCAL_COMMERCIAL", "LOCAL_PROFESSIONNEL"]),
   nom: zTexte(200),
   adresse: zTexte(300),
   complementAdresse: zTexteOpt(300),
@@ -25,13 +25,19 @@ const schemaLot = z.object({
   chargesIndicatives: zMontantOpt,
   bailleurId: zIdOpt,
   immeubleId: zIdOpt,
+  optionTva: zBool,
+  optionTvaDate: zDateOpt,
   description: zTexteOpt(5000),
 });
 
-async function verifierRattachements(entiteId: number, d: { bailleurId: number | null; immeubleId: number | null }): Promise<Record<string, string>> {
+async function verifierRattachements(entiteId: number, d: { bailleurId: number | null; immeubleId: number | null; optionTva: boolean }): Promise<Record<string, string>> {
   const errors: Record<string, string> = {};
   if (d.bailleurId && !(await prisma.bailleur.findFirst({ where: { id: d.bailleurId, entiteId }, select: { id: true } }))) errors.bailleurId = "Bailleur introuvable.";
-  if (d.immeubleId && !(await prisma.immeuble.findFirst({ where: { id: d.immeubleId, entiteId }, select: { id: true } }))) errors.immeubleId = "Immeuble introuvable.";
+  if (d.immeubleId) {
+    const immeuble = await prisma.immeuble.findFirst({ where: { id: d.immeubleId, entiteId }, select: { id: true, optionTva: true } });
+    if (!immeuble) errors.immeubleId = "Immeuble introuvable.";
+    else if (d.optionTva && !immeuble.optionTva) errors.optionTva = "L'immeuble n'a pas opté pour la TVA : activez d'abord l'option sur la fiche de l'immeuble.";
+  }
   return errors;
 }
 

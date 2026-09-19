@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
-import { analyser, zCodePostal, zIdOpt, zTexte, zTexteOpt } from "@/lib/validation";
+import { analyser, zBool, zCodePostal, zDateOpt, zIdOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
 import { exigerEcriture } from "@/lib/droits";
 
@@ -17,6 +17,8 @@ const schemaImmeuble = z.object({
   codePostal: zCodePostal,
   ville: zTexte(120),
   bailleurId: zIdOpt,
+  optionTva: zBool,
+  optionTvaDate: zDateOpt,
   notes: zTexteOpt(5000),
 });
 

@@ -5,6 +5,7 @@ import { CATEGORIES_MODELE, TYPES_BAIL, TYPES_COURRIER, TYPES_LOT, adresseSurUne
 import { nomsLocataires } from "@/lib/locataires";
 import { aujourdhui, formatDate, formatPeriode } from "@/lib/dates";
 import { formatEuros } from "@/lib/montants";
+import { libelleTaux, montantsMensuels } from "@/lib/tva";
 import { numeroAppel, numeroQuittance } from "@/lib/loyers";
 import { formatTaille } from "@/lib/storage";
 import { Alerte, Badge, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Stat, Tableau, TableauPied, Td, Th } from "@/components/ui";
@@ -51,7 +52,7 @@ export default async function EspaceBailPage({ params, searchParams }: { params:
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat libelle="Solde dû" valeur={formatEuros(solde.total)} detail={solde.total > 0 ? (solde.enRetard > 0 ? `dont ${formatEuros(solde.enRetard)} en retard` : "à régler avant l'échéance") : "vous êtes à jour"} ton={solde.total > 0 ? (solde.enRetard > 0 ? "rouge" : "orange") : "vert"} />
-        <Stat libelle="Loyer mensuel" valeur={formatEuros(b.loyerHC + b.charges)} detail={`${formatEuros(b.loyerHC)} hors charges + ${formatEuros(b.charges)} de charges`} ton="bleu" />
+        <Stat libelle={b.tauxTva > 0 ? "Loyer mensuel TTC" : "Loyer mensuel"} valeur={formatEuros(montantsMensuels(b).ttc)} detail={`${formatEuros(b.loyerHC)} hors charges + ${formatEuros(b.charges)} de charges${b.tauxTva > 0 ? ` + TVA ${libelleTaux(b.tauxTva)} ${formatEuros(montantsMensuels(b).tva)}` : ""}`} ton="bleu" />
         <Stat libelle="Échéance" valeur={`le ${b.jourEcheance}`} detail="de chaque mois, d'avance" />
       </div>
 
@@ -149,6 +150,7 @@ export default async function EspaceBailPage({ params, searchParams }: { params:
                   { label: b.statut === "TERMINE" ? "Fin du bail" : "Échéance du bail", valeur: formatDate(b.dateFinEffective ?? b.dateFin) },
                   { label: "Loyer hors charges", valeur: formatEuros(b.loyerHC) },
                   { label: b.chargesForfait ? "Forfait de charges" : "Provision sur charges", valeur: formatEuros(b.charges) },
+                  ...(b.tauxTva > 0 ? [{ label: "TVA", valeur: `${libelleTaux(b.tauxTva)} sur le loyer et les charges · ${formatEuros(montantsMensuels(b).tva)} par mois` }] : []),
                   { label: "Dépôt de garantie", valeur: b.depotGarantie > 0 ? formatEuros(b.depotGarantie) : "aucun" },
                   ...(b.dateSignature ? [{ label: "Signé le", valeur: formatDate(b.dateSignature) }] : []),
                   ...(b.irlTrimestre || b.irlValeur !== null ? [{ label: "Indice de référence (IRL)", valeur: `${b.irlTrimestre ?? ""}${b.irlValeur !== null ? ` · ${String(b.irlValeur).replace(".", ",")}` : ""}` }] : []),

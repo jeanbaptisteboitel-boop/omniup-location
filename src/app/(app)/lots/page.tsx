@@ -10,6 +10,7 @@ import { FiltresForm } from "@/components/filtres-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
+import { montantsMensuels } from "@/lib/tva";
 
 export const metadata = { title: "Lots" };
 
@@ -115,7 +116,7 @@ export default async function LotsPage({ searchParams }: { searchParams: SearchP
                 <tbody className="divide-y divide-slate-100">
                   {lignes.map((l) => {
                     const bail = l.baux[0];
-                    const loyerCC = bail ? bail.loyerHC + bail.charges : l.loyerIndicatif !== null ? l.loyerIndicatif + (l.chargesIndicatives ?? 0) : null;
+                    const loyerCC = bail ? montantsMensuels(bail).ttc : l.loyerIndicatif !== null ? l.loyerIndicatif + (l.chargesIndicatives ?? 0) : null;
                     return (
                       <tr key={l.id} className="hover:bg-slate-50">
                         <Td>

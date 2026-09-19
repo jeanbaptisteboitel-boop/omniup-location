@@ -14,7 +14,12 @@ import type {
 export const TYPES_LOT: Record<TypeLot, string> = {
   APPARTEMENT: "Appartement",
   MAISON: "Maison",
+  LOCAL_COMMERCIAL: "Local commercial",
+  LOCAL_PROFESSIONNEL: "Local professionnel (bureau, cabinet)",
 };
+
+/** Lots à usage d'habitation (par opposition aux locaux commerciaux ou professionnels). */
+export const LOTS_HABITATION: TypeLot[] = ["APPARTEMENT", "MAISON"];
 
 export const TYPES_PERSONNE: Record<TypePersonne, string> = {
   PHYSIQUE: "Personne physique",
@@ -34,12 +39,18 @@ export const TYPES_BAIL: Record<TypeBail, string> = {
   NON_MEUBLE: "Bail non meublé (logement vide)",
   MEUBLE: "Bail meublé",
   MOBILITE: "Bail mobilité",
+  COMMERCIAL: "Bail commercial",
+  PROFESSIONNEL: "Bail professionnel",
+  SAISONNIER: "Location meublée de tourisme (saisonnière)",
 };
 
 export const TYPES_BAIL_COURT: Record<TypeBail, string> = {
   NON_MEUBLE: "Non meublé",
   MEUBLE: "Meublé",
   MOBILITE: "Mobilité",
+  COMMERCIAL: "Commercial",
+  PROFESSIONNEL: "Professionnel",
+  SAISONNIER: "Saisonnier",
 };
 
 export const STATUTS_BAIL: Record<StatutBail, string> = {

@@ -3,6 +3,7 @@ import { formatEuros } from "./montants";
 import { adresseSurUneLigne } from "./libelles";
 import { formuleAppel } from "./locataires";
 import { numeroAppel } from "./loyers";
+import { libelleTaux, usageHabitation } from "./tva";
 import type { AppelComplet } from "./pdf/donnees";
 
 function signature(bailleur: { nom: string; representant: string | null } | null): string {
@@ -16,9 +17,9 @@ export function emailAvis(a: AppelComplet): { objet: string; corps: string } {
   const lignes = [
     `Bonjour ${formuleAppel(bail.locataires)},`,
     "",
-    `Veuillez trouver ci-joint l'avis d'échéance n° ${numeroAppel(a.id)} de votre loyer pour ${formatPeriode(a.periode).toLowerCase()}, concernant le logement situé ${adresseSurUneLigne(bail.lot)}.`,
+    `Veuillez trouver ci-joint l'avis d'échéance n° ${numeroAppel(a.id)} de votre loyer pour ${formatPeriode(a.periode).toLowerCase()}, concernant ${usageHabitation(bail.type) ? "le logement" : "le local"} situé ${adresseSurUneLigne(bail.lot)}.`,
     "",
-    `Montant à régler : ${formatEuros(a.total)}${a.charges > 0 ? ` (loyer ${formatEuros(a.loyer)} + charges ${formatEuros(a.charges)})` : ""}, à payer au plus tard le ${formatDate(a.dateEcheance)}.`,
+    `Montant à régler : ${formatEuros(a.total)}${a.tauxTva > 0 ? ` TTC (loyer ${formatEuros(a.loyer)}${a.charges > 0 ? ` + charges ${formatEuros(a.charges)}` : ""} hors taxes + TVA ${libelleTaux(a.tauxTva)} ${formatEuros(a.montantTva)})` : a.charges > 0 ? ` (loyer ${formatEuros(a.loyer)} + charges ${formatEuros(a.charges)})` : ""}, à payer au plus tard le ${formatDate(a.dateEcheance)}.`,
     ...(bailleur?.iban ? [`Règlement par virement : IBAN ${bailleur.iban}${bailleur.bic ? ` - BIC ${bailleur.bic}` : ""}, référence ${numeroAppel(a.id)}.`] : []),
     "",
     "Une quittance vous sera adressée dès réception du paiement.",
@@ -37,8 +38,8 @@ export function emailQuittance(a: AppelComplet, integral: boolean): { objet: str
     `Bonjour ${formuleAppel(bail.locataires)},`,
     "",
     integral
-      ? `Nous accusons réception de votre paiement${dernier ? ` du ${formatDate(dernier.date)}` : ""} et vous prions de trouver ci-joint la quittance de loyer pour ${formatPeriode(a.periode).toLowerCase()} (${formatEuros(a.total)}), concernant le logement situé ${adresseSurUneLigne(bail.lot)}.`
-      : `Nous accusons réception de votre paiement partiel${dernier ? ` du ${formatDate(dernier.date)}` : ""} et vous prions de trouver ci-joint le reçu correspondant pour ${formatPeriode(a.periode).toLowerCase()}, concernant le logement situé ${adresseSurUneLigne(bail.lot)}.`,
+      ? `Nous accusons réception de votre paiement${dernier ? ` du ${formatDate(dernier.date)}` : ""} et vous prions de trouver ci-joint la quittance de loyer pour ${formatPeriode(a.periode).toLowerCase()} (${formatEuros(a.total)}${a.tauxTva > 0 ? ` TTC, dont TVA ${formatEuros(a.montantTva)}` : ""}), concernant ${usageHabitation(bail.type) ? "le logement" : "le local"} situé ${adresseSurUneLigne(bail.lot)}.`
+      : `Nous accusons réception de votre paiement partiel${dernier ? ` du ${formatDate(dernier.date)}` : ""} et vous prions de trouver ci-joint le reçu correspondant pour ${formatPeriode(a.periode).toLowerCase()}, concernant ${usageHabitation(bail.type) ? "le logement" : "le local"} situé ${adresseSurUneLigne(bail.lot)}.`,
     "",
     "Nous vous remercions.",
     "",

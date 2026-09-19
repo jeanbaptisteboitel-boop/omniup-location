@@ -37,6 +37,8 @@ export async function synchroniserAppelsLoyer(options: { bailId?: number; aujour
             dateEcheance: calc.dateEcheance,
             loyer: calc.loyer,
             charges: calc.charges,
+            tauxTva: calc.tauxTva,
+            montantTva: calc.montantTva,
             total: calc.total,
             prorata: calc.prorata,
           },
@@ -70,7 +72,7 @@ export async function recalculerAppelsNonRegles(bailId: number, aPartirDe: strin
     const calc = calculerAppel(bail, appel.periode);
     await prisma.appelLoyer.update({
       where: { id: appel.id },
-      data: { debutPeriode: calc.debutPeriode, finPeriode: calc.finPeriode, dateEcheance: calc.dateEcheance, loyer: calc.loyer, charges: calc.charges, total: calc.total, prorata: calc.prorata },
+      data: { debutPeriode: calc.debutPeriode, finPeriode: calc.finPeriode, dateEcheance: calc.dateEcheance, loyer: calc.loyer, charges: calc.charges, tauxTva: calc.tauxTva, montantTva: calc.montantTva, total: calc.total, prorata: calc.prorata },
     });
   }
 }

@@ -64,6 +64,7 @@ export default async function BailleurPage({ params, searchParams }: { params: P
                     { label: "Représentant", valeur: b.representant },
                     { label: "Adresse", valeur: adresseSurPlusieursLignes(b).map((l, k) => <span key={k} className="block">{l}</span>) },
                     { label: "SIREN", valeur: b.siren },
+                    { label: "N° TVA intracommunautaire", valeur: b.numeroTva ?? null },
                     { label: "Email", valeur: b.email },
                     { label: "Téléphone", valeur: b.telephone },
                     { label: "IBAN", valeur: b.iban },

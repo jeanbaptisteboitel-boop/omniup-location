@@ -48,6 +48,7 @@ export default async function SynthesePage({ searchParams }: { searchParams: Sea
                 <Select name="annee" aria-label="Année" defaultValue={String(annee)} options={anneesProposees.map((a) => ({ value: String(a), label: String(a) }))} className="font-semibold" />
               </div>
             </FiltresForm>
+            <ButtonLink href={`/declaration-2044?annee=${annee}`} variante="secondary" title="Aide au remplissage de la déclaration 2044">Aide 2044</ButtonLink>
             <ButtonLink href={`/api/export/encaissements.csv?annee=${annee}`} variante="secondary" title={`Encaissements ${annee} au format CSV`}><IconeTelecharger taille={16} />Encaissements CSV</ButtonLink>
             <ButtonLink href={`/api/export/depenses.csv?annee=${annee}`} title={`Dépenses ${annee} au format CSV`}><IconeTelecharger taille={16} />Dépenses CSV</ButtonLink>
           </>
@@ -74,6 +75,12 @@ export default async function SynthesePage({ searchParams }: { searchParams: Sea
                 <td className={LIGNE}>Provisions sur charges encaissées</td>
                 <td className={MONTANT}>{formatEuros(total.charges)}</td>
               </tr>
+              {total.tva > 0 && (
+                <tr className="border-t border-slate-100">
+                  <td className={LIGNE}>TVA collectée sur les loyers (à reverser, hors recettes)</td>
+                  <td className={`${MONTANT} text-slate-500`}>{formatEuros(total.tva)}</td>
+                </tr>
+              )}
               <tr className="border-t border-slate-100">
                 <td className={LIGNE}>Loyers appelés non encaissés</td>
                 <td className={`${MONTANT} text-red-700`}>{formatEuros(impayes)}</td>

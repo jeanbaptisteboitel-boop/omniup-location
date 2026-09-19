@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { idDepuis, texteParam, type ParamsId, type SearchParams } from "@/lib/params";
 import { CATEGORIES_MODELE, TYPES_BAIL, TYPES_BAIL_COURT, TYPES_COURRIER, TYPES_LOT, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
 import { REGLES_BAIL, dureeEnMois } from "@/lib/bail-regles";
+import { libelleTaux, montantsMensuels, usageHabitation } from "@/lib/tva";
 import { ajouterAnnees, aujourdhui, formatDate, formatPeriode, toISODate } from "@/lib/dates";
 import { formatEuros, formatNombre, somme } from "@/lib/montants";
 import { etatAppel } from "@/lib/loyers";
@@ -56,7 +57,9 @@ export default async function BailPage({ params, searchParams }: { params: Param
   const derniereRevision = b.revisions[b.revisions.length - 1];
   const prochaineRevision = peutReviser ? ajouterAnnees(derniereRevision?.dateEffet ?? b.dateDebut, 1) : null;
   const locataire = nomsLocataires(b.locataires);
-  const loyerCC = b.loyerHC + b.charges;
+  const mensuel = montantsMensuels(b);
+  const loyerCC = mensuel.ttc;
+  const tvaSansNumero = b.tauxTva > 0 && !b.lot.bailleur?.numeroTva;
   const lienOnglet = (o: Onglet) => (o === "contrat" ? `/baux/${b.id}` : `/baux/${b.id}?onglet=${o}`);
   const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
   const indice = b.irlTrimestre || b.irlValeur !== null ? `IRL ${b.irlTrimestre ?? ""}${b.irlTrimestre && b.irlValeur !== null ? " · " : ""}${b.irlValeur !== null ? formatNombre(b.irlValeur) : ""}`.trim() : null;
@@ -166,6 +169,11 @@ export default async function BailPage({ params, searchParams }: { params: Param
         actions={actions}
       />
       <Flash sp={sp} />
+      {tvaSansNumero && (
+        <Alerte ton="orange" titre="Numéro de TVA du bailleur manquant" className="mb-6">
+          Ce bail est soumis à la TVA : renseignez le numéro de TVA intracommunautaire du bailleur dans sa fiche, il doit figurer sur les avis d'échéance et les quittances.
+        </Alerte>
+      )}
 
       <div className="flex flex-col gap-6">
         {!b.lot.bailleur && (
@@ -182,7 +190,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
         <Stepper etapes={ETAPES.map((s) => STATUTS_BAIL_COURT[s])} courant={ETAPES.indexOf(b.statut)} />
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:grid-rows-[auto_auto_1fr] md:items-start">
-          <Stat sombre libelle="Loyer mensuel charges comprises" valeur={formatEuros(loyerCC)} detail={`${formatEuros(b.loyerHC)} HC + ${formatEuros(b.charges)} de charges · le ${b.jourEcheance} du mois`} className="md:col-start-2 md:row-start-3" />
+          <Stat sombre libelle={`Loyer mensuel charges comprises${mensuel.tva > 0 ? " TTC" : ""}`} valeur={formatEuros(loyerCC)} detail={`${formatEuros(b.loyerHC)} HC + ${formatEuros(b.charges)} de charges${mensuel.tva > 0 ? ` + TVA ${libelleTaux(b.tauxTva)} ${formatEuros(mensuel.tva)}` : ""} · le ${b.jourEcheance} du mois`} className="md:col-start-2 md:row-start-3" />
 
           <Card className="min-w-0 md:col-start-1 md:row-start-1 md:row-span-3">
             <Onglets
@@ -207,8 +215,9 @@ export default async function BailPage({ params, searchParams }: { params: Param
                       ...(b.dateFinEffective ? [{ label: "Fin effective", valeur: formatDate(b.dateFinEffective) }] : []),
                       { label: "Loyer hors charges", valeur: formatEuros(b.loyerHC) },
                       { label: "Charges", valeur: b.charges > 0 ? `${formatEuros(b.charges)} · ${b.chargesForfait ? "forfait" : "provision régularisée chaque année"}` : "Aucune" },
+                      { label: "TVA", valeur: b.tauxTva > 0 ? `${libelleTaux(b.tauxTva)} sur le loyer et les charges, soit ${formatEuros(mensuel.tva)} par mois` : usageHabitation(b.type) ? "Exonéré (usage d'habitation)" : "Exonéré (sans option)" },
                       { label: "Dépôt de garantie", valeur: b.depotGarantie > 0 ? formatEuros(b.depotGarantie) : "Aucun" },
-                      { label: "Indice de référence", valeur: regle.revisionIRL ? indice : "Non applicable (bail mobilité)" },
+                      { label: "Indice de référence", valeur: regle.revisionIRL ? indice : b.type === "COMMERCIAL" || b.type === "PROFESSIONNEL" ? "Selon le bail (ILC ou ILAT)" : "Non applicable" },
                       { label: "Jour d'échéance", valeur: `Le ${b.jourEcheance} de chaque mois` },
                       { label: "Signé le", valeur: b.dateSignature ? `${formatDate(b.dateSignature)}${b.signatureRef ? ` · réf. ${b.signatureRef}` : ""}` : null },
                       ...(b.type === "MOBILITE" ? [{ label: "Motif du bail mobilité", valeur: b.motifMobilite }] : []),
@@ -315,7 +324,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
                 <>
                   <Tableau>
                     <thead className="bg-slate-50">
-                      <tr><Th>Période</Th><Th>Échéance</Th><Th droite>Montant</Th><Th droite>Réglé</Th><Th>Statut</Th></tr>
+                      <tr><Th>Période</Th><Th>Échéance</Th><Th droite>Montant{b.tauxTva > 0 ? " TTC" : ""}</Th>{b.tauxTva > 0 && <Th droite>dont TVA</Th>}<Th droite>Réglé</Th><Th>Statut</Th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {etats.map(({ appel, etat }) => (
@@ -326,6 +335,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
                           </Td>
                           <Td className="whitespace-nowrap text-slate-600 tabular-nums">{formatDate(appel.dateEcheance)}</Td>
                           <Td droite>{formatEuros(appel.total)}</Td>
+                          {b.tauxTva > 0 && <Td droite className="text-slate-500">{formatEuros(appel.montantTva)}</Td>}
                           <Td droite>{formatEuros(etat.regle)}</Td>
                           <Td><BadgeStatutAppel statut={etat.statut} /></Td>
                         </tr>

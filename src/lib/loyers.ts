@@ -14,6 +14,8 @@ import {
   periodeSuivante,
 } from "./dates";
 import { arrondir2, somme } from "./montants";
+import { bailADureeFixe } from "./bail-regles";
+import { montantTva } from "./tva";
 
 export type BailPourAppels = {
   id: number;
@@ -25,14 +27,19 @@ export type BailPourAppels = {
   loyerHC: number;
   charges: number;
   jourEcheance: number;
+  /** Taux de TVA du bail (0 = exonéré) ; absent pour les anciens objets. */
+  tauxTva?: number;
 };
 
 export type AppelCalcule = {
   periode: string;
   debutPeriode: Date;
   finPeriode: Date;
+  /** Loyer et charges hors taxes, TVA, total toutes taxes comprises. */
   loyer: number;
   charges: number;
+  tauxTva: number;
+  montantTva: number;
   total: number;
   prorata: boolean;
   dateEcheance: Date;
@@ -40,12 +47,13 @@ export type AppelCalcule = {
 
 /**
  * Dernier jour de location connu. `null` signifie « sans fin connue » :
- * les baux meublés et non meublés se reconduisent tacitement tant qu'ils ne sont pas clôturés.
+ * les baux reconductibles (habitation, commercial, professionnel) continuent tant qu'ils ne sont pas clôturés ;
+ * les baux à durée fixe (mobilité, saisonnier) s'arrêtent à leur date de fin.
  */
 export function finLocation(bail: Pick<BailPourAppels, "type" | "statut" | "dateFin" | "dateFinEffective">): Date | null {
   if (bail.dateFinEffective) return bail.dateFinEffective;
   if (bail.statut === "TERMINE") return bail.dateFin;
-  if (bail.type === "MOBILITE") return bail.dateFin;
+  if (bailADureeFixe(bail.type)) return bail.dateFin;
   return null;
 }
 
@@ -89,11 +97,13 @@ export function calculerAppel(bail: BailPourAppels, periode: string): AppelCalcu
   const ratio = prorata ? joursOccupes / joursMois : 1;
   const loyer = arrondir2(bail.loyerHC * ratio);
   const charges = arrondir2(bail.charges * ratio);
+  const tauxTva = bail.tauxTva ?? 0;
+  const tva = montantTva(arrondir2(loyer + charges), tauxTva);
   const { annee, mois } = parsePeriode(periode);
   const jour = Math.min(Math.max(bail.jourEcheance || 1, 1), joursMois);
   let dateEcheance = jourUTC(annee, mois, jour);
   if (dateEcheance.getTime() < debutPeriode.getTime()) dateEcheance = debutPeriode;
-  return { periode, debutPeriode, finPeriode, loyer, charges, total: arrondir2(loyer + charges), prorata, dateEcheance };
+  return { periode, debutPeriode, finPeriode, loyer, charges, tauxTva, montantTva: tva, total: arrondir2(loyer + charges + tva), prorata, dateEcheance };
 }
 
 export type StatutAppel = "PAYE" | "PARTIEL" | "A_PAYER" | "EN_RETARD";

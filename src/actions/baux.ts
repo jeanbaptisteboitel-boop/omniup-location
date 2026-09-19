@@ -6,8 +6,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { echec, erreur, succes, type FormState } from "@/lib/forms";
 import { avecMessage } from "@/lib/erreurs";
-import { analyser, zBool, zDate, zDateOpt, zEntier, zEnum, zId, zMontant, zMontantOpt, zNombreOpt, zTexteOpt } from "@/lib/validation";
-import { verifierRegles } from "@/lib/bail-regles";
+import { analyser, zBool, zDate, zDateOpt, zEntier, zEntierOpt, zEnum, zId, zMontant, zMontantOpt, zNombreOpt, zTexteOpt } from "@/lib/validation";
+import { REGLES_BAIL, verifierRegles } from "@/lib/bail-regles";
+import { optionTvaEffective } from "@/lib/tva";
 import { aujourdhui, periodeDe, toISODate } from "@/lib/dates";
 import { calculerLoyerRevise } from "@/lib/irl";
 import { formatEuros } from "@/lib/montants";
@@ -24,7 +25,7 @@ import { exigerEcriture } from "@/lib/droits";
 
 const schemaBail = z.object({
   lotId: zId,
-  type: zEnum(["NON_MEUBLE", "MEUBLE", "MOBILITE"]),
+  type: zEnum(["NON_MEUBLE", "MEUBLE", "MOBILITE", "COMMERCIAL", "PROFESSIONNEL", "SAISONNIER"]),
   dateDebut: zDate,
   dateFin: zDate,
   loyerHC: zMontant,
@@ -32,6 +33,7 @@ const schemaBail = z.object({
   chargesForfait: zBool,
   depotGarantie: zMontantOpt,
   jourEcheance: zEntier(1, 31),
+  tauxTva: zEntierOpt(0, 100),
   motifMobilite: zTexteOpt(200),
   clauseRevision: zBool,
   irlTrimestre: zTexteOpt(20),
@@ -56,7 +58,7 @@ async function preparerBail(fd: FormData) {
   const d = r.data;
   const entiteId = await entiteCouranteId();
   const [lot, locataires] = await Promise.all([
-    prisma.lot.findFirst({ where: { id: d.lotId, entiteId }, select: { id: true, meuble: true } }),
+    prisma.lot.findFirst({ where: { id: d.lotId, entiteId }, select: { id: true, meuble: true, type: true, optionTva: true, immeuble: { select: { optionTva: true } } } }),
     prisma.locataire.findMany({ where: { id: { in: locataireIds }, entiteId }, select: { id: true } }),
   ]);
   const errors: Record<string, string> = {};
@@ -65,7 +67,9 @@ async function preparerBail(fd: FormData) {
   else if (locataires.length !== locataireIds.length) errors.locataireIds = "Locataire introuvable.";
   if (Object.keys(errors).length) return { ok: false as const, errors };
 
-  const chargesForfait = d.type === "MOBILITE" ? true : d.chargesForfait;
+  const regle = REGLES_BAIL[d.type];
+  const chargesForfait = regle.chargesForfaitObligatoire ? true : d.chargesForfait;
+  const lotSoumisTva = optionTvaEffective(lot!);
   const data = {
     entiteId,
     lotId: d.lotId,
@@ -77,13 +81,14 @@ async function preparerBail(fd: FormData) {
     chargesForfait,
     depotGarantie: d.depotGarantie ?? 0,
     jourEcheance: d.jourEcheance,
+    tauxTva: d.tauxTva ?? 0,
     motifMobilite: d.type === "MOBILITE" ? d.motifMobilite : null,
-    clauseRevision: d.type === "MOBILITE" ? false : d.clauseRevision,
-    irlTrimestre: d.irlTrimestre,
-    irlValeur: d.irlValeur,
+    clauseRevision: regle.revisionIRL ? d.clauseRevision : false,
+    irlTrimestre: regle.revisionIRL ? d.irlTrimestre : null,
+    irlValeur: regle.revisionIRL ? d.irlValeur : null,
     notes: d.notes,
   };
-  const verif = verifierRegles({ ...data, lotMeuble: lot!.meuble });
+  const verif = verifierRegles({ ...data, lotMeuble: lot!.meuble, lotType: lot!.type, lotSoumisTva });
   if (Object.keys(verif.erreurs).length) return { ok: false as const, errors: verif.erreurs };
   return { ok: true as const, data, locataireIds, avertissements: verif.avertissements };
 }

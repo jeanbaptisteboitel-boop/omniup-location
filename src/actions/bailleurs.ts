@@ -20,6 +20,7 @@ const schemaBailleur = z.object({
   email: zEmailOpt,
   telephone: zTexteOpt(40),
   siren: zTexteOpt(20),
+  numeroTva: zTexteOpt(30),
   iban: zTexteOpt(50),
   bic: zTexteOpt(20),
   notes: zTexteOpt(5000),

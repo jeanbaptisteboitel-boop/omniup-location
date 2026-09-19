@@ -5,6 +5,7 @@ import { CATEGORIES_DEPENSE, TYPES_BAIL_COURT, TYPES_LOT, adresseSurUneLigne } f
 import { nomsLocataires } from "@/lib/locataires";
 import { aujourdhui, formatDate, formatPeriode } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
+import { libelleTaux, montantsMensuels } from "@/lib/tva";
 import { numeroAppel, numeroQuittance } from "@/lib/loyers";
 import { formatTaille } from "@/lib/storage";
 import { formatSurface } from "@/components/patrimoine/surface";
@@ -42,7 +43,7 @@ export default async function ProprietaireLotPage({ params }: { params: ParamsId
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat libelle="Loyer charges comprises" valeur={bail ? formatEuros(bail.loyerHC + bail.charges) : "—"} detail={bail ? `${formatEuros(bail.loyerHC)} hors charges + ${formatEuros(bail.charges)} de charges` : "aucun bail en cours"} ton="bleu" />
+        <Stat libelle={bail && bail.tauxTva > 0 ? "Loyer charges comprises TTC" : "Loyer charges comprises"} valeur={bail ? formatEuros(montantsMensuels(bail).ttc) : "—"} detail={bail ? `${formatEuros(bail.loyerHC)} hors charges + ${formatEuros(bail.charges)} de charges${bail.tauxTva > 0 ? ` + TVA ${libelleTaux(bail.tauxTva)} ${formatEuros(montantsMensuels(bail).tva)}` : ""}` : "aucun bail en cours"} ton="bleu" />
         <Stat libelle="Reste dû" valeur={formatEuros(solde.total)} detail={solde.total > 0 ? (solde.enRetard > 0 ? `dont ${formatEuros(solde.enRetard)} en retard` : "échéance à venir, aucun retard") : "tous les loyers appelés sont réglés"} ton={solde.total > 0 ? (solde.enRetard > 0 ? "rouge" : "orange") : "vert"} />
         <Stat libelle={`Encaissé en ${annee}`} valeur={formatEuros(encaisse)} detail="paiements reçus sur l'année civile" ton="cyan" />
       </div>
@@ -185,6 +186,7 @@ export default async function ProprietaireLotPage({ params }: { params: ParamsId
                       { label: "Période", valeur: `du ${formatDate(bail.dateDebut)} au ${formatDate(bail.dateFinEffective ?? bail.dateFin)}` },
                       { label: "Loyer hors charges", valeur: formatEuros(bail.loyerHC) },
                       { label: bail.chargesForfait ? "Forfait de charges" : "Provision sur charges", valeur: formatEuros(bail.charges) },
+                      ...(bail.tauxTva > 0 ? [{ label: "TVA", valeur: `${libelleTaux(bail.tauxTva)} · ${formatEuros(montantsMensuels(bail).tva)} par mois` }] : []),
                       { label: "Dépôt de garantie", valeur: bail.depotGarantie > 0 ? formatEuros(bail.depotGarantie) : "aucun" },
                       ...(bail.dateSignature ? [{ label: "Signé le", valeur: formatDate(bail.dateSignature) }] : []),
                     ]}
@@ -214,7 +216,7 @@ export default async function ProprietaireLotPage({ params }: { params: ParamsId
                         <BadgeStatutBail statut={x.statut} />
                       </div>
                       <span className="block text-xs text-slate-500">
-                        {TYPES_BAIL_COURT[x.type]} · du {formatDate(x.dateDebut)} au {formatDate(x.dateFinEffective ?? x.dateFin)} · {formatEuros(x.loyerHC + x.charges)} charges comprises
+                        {TYPES_BAIL_COURT[x.type]} · du {formatDate(x.dateDebut)} au {formatDate(x.dateFinEffective ?? x.dateFin)} · {formatEuros(montantsMensuels(x).ttc)} charges comprises{x.tauxTva > 0 ? " TTC" : ""}
                       </span>
                       {(x.texteContrat || x.contratSigneChemin) && (
                         <span className="mt-0.5 block text-xs">

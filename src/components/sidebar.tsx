@@ -39,6 +39,7 @@ const GROUPES: { titre: string | null; liens: Lien[] }[] = [
       { href: "/depenses", libelle: "Dépenses", icone: <IconeDepenses /> },
       { href: "/emprunts", libelle: "Emprunts", icone: <IconeEmprunts /> },
       { href: "/synthese", libelle: "Synthèse annuelle", icone: <IconeSynthese /> },
+      { href: "/declaration-2044", libelle: "Déclaration 2044", icone: <IconeSynthese /> },
     ],
   },
   {

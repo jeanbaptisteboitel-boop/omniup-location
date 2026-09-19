@@ -9,6 +9,7 @@ import { identificationLocataires, includeLocataires, nomsLocataires, valeurParL
 import { aujourdhui, formatDate, formatDateLongue } from "./dates";
 import { formatEuros, formatNombre, montantEnLettres } from "./montants";
 import { dureeEnMois } from "./bail-regles";
+import { libelleTaux, montantsMensuels, usageHabitation } from "./tva";
 
 /** Crée les modèles par défaut manquants (les modèles déjà présents, même modifiés, sont conservés). */
 export async function initialiserModelesDefaut(): Promise<void> {
@@ -47,6 +48,7 @@ export async function contexteDepuisBail(bail: BailPourModele): Promise<Contexte
     "bailleur.telephone": b?.telephone ?? "",
     "bailleur.siren": b?.siren ?? "",
     "bailleur.iban": b?.iban ?? "",
+    "bailleur.numeroTva": b?.numeroTva ?? "",
     "locataire.nomComplet": nomsLocataires(ls),
     "locataire.identification": identificationLocataires(ls),
     "locataire.dateNaissance": valeurParLocataire(ls, (l) => formatDate(l.dateNaissance)),
@@ -70,6 +72,10 @@ export async function contexteDepuisBail(bail: BailPourModele): Promise<Contexte
     "bail.charges": formatEuros(bail.charges),
     "bail.chargesRegime": bail.chargesForfait ? "forfait" : "provision avec régularisation annuelle",
     "bail.totalMensuel": formatEuros(bail.loyerHC + bail.charges),
+    "bail.tauxTva": bail.tauxTva > 0 ? libelleTaux(bail.tauxTva) : "",
+    "bail.tvaMensuelle": bail.tauxTva > 0 ? formatEuros(montantsMensuels(bail).tva) : "",
+    "bail.totalMensuelTTC": formatEuros(montantsMensuels(bail).ttc),
+    "bail.regimeTva": bail.tauxTva > 0 ? `soumis à la TVA au taux de ${libelleTaux(bail.tauxTva)} (loyer et charges stipulés hors taxes)` : usageHabitation(bail.type) ? "exonéré de TVA (location à usage d'habitation)" : "non soumis à la TVA (absence d'option)",
     "bail.depotGarantie": bail.depotGarantie > 0 ? formatEuros(bail.depotGarantie) : "aucun dépôt de garantie",
     "bail.depotGarantieLettres": bail.depotGarantie > 0 ? montantEnLettres(bail.depotGarantie) : "zéro euro",
     "bail.jourEcheance": String(bail.jourEcheance),

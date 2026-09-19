@@ -11,6 +11,7 @@ import { BadgeStatutBail, STATUTS_BAIL_COURT } from "@/components/baux/badge-sta
 import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires } from "@/lib/locataires";
 import { LiensLocataires } from "@/components/locataires/liens-locataires";
+import { montantsMensuels } from "@/lib/tva";
 
 export const metadata = { title: "Baux" };
 
@@ -50,7 +51,7 @@ export default async function BauxPage({ searchParams }: { searchParams: SearchP
                 <Td className="whitespace-nowrap text-slate-600">{TYPES_BAIL_COURT[b.type]}</Td>
                 <Td className="whitespace-nowrap text-slate-600 tabular-nums">{formatDate(b.dateDebut)}</Td>
                 <Td className="whitespace-nowrap text-slate-600 tabular-nums">{formatDate(b.dateFinEffective ?? b.dateFin)}</Td>
-                <Td droite className="whitespace-nowrap font-semibold">{formatEuros(b.loyerHC + b.charges)}</Td>
+                <Td droite className="whitespace-nowrap font-semibold">{formatEuros(montantsMensuels(b).ttc)}{b.tauxTva > 0 && <span className="ml-1 text-xs font-normal text-slate-500">TTC</span>}</Td>
                 <Td><BadgeStatutBail statut={b.statut} /></Td>
               </tr>
             ))}

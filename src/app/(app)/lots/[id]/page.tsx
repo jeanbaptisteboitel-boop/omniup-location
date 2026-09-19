@@ -13,6 +13,7 @@ import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
+import { libelleTaux, montantsMensuels, optionTvaEffective } from "@/lib/tva";
 
 export default async function LotPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
@@ -70,6 +71,14 @@ export default async function LotPage({ params, searchParams }: { params: Params
                   { label: "Loyer hors charges", valeur: lot.loyerIndicatif !== null ? formatEuros(lot.loyerIndicatif) : null },
                   { label: "Charges", valeur: lot.chargesIndicatives !== null ? formatEuros(lot.chargesIndicatives) : null },
                   { label: "Immeuble", valeur: lot.immeuble ? <Link href={`/immeubles/${lot.immeuble.id}`} className="text-navy-800 hover:underline">{lot.immeuble.nom}</Link> : null },
+                  {
+                    label: "TVA sur les loyers",
+                    valeur: optionTvaEffective(lot)
+                      ? `Soumis à la TVA${lot.optionTvaDate ? ` · option à effet du ${formatDate(lot.optionTvaDate)}` : ""}`
+                      : lot.optionTva && lot.immeuble && !lot.immeuble.optionTva
+                        ? <span className="text-amber-800">Option cochée sur le lot, mais l'immeuble n'a pas opté : sans effet</span>
+                        : "Exonéré (pas d'option)",
+                  },
                   { label: "Adresse", valeur: adresseSurUneLigne(lot) },
                   ...(lot.description ? [{ label: "Description", valeur: <span className="whitespace-pre-line">{lot.description}</span> }] : []),
                 ]}
@@ -89,8 +98,8 @@ export default async function LotPage({ params, searchParams }: { params: Params
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="block font-semibold tabular-nums">{formatEuros(bailActif.loyerHC + bailActif.charges)}</span>
-                    <span className="block text-xs text-slate-500">charges comprises</span>
+                    <span className="block font-semibold tabular-nums">{formatEuros(montantsMensuels(bailActif).ttc)}</span>
+                    <span className="block text-xs text-slate-500">{bailActif.tauxTva > 0 ? `charges comprises, TTC (TVA ${libelleTaux(bailActif.tauxTva)})` : "charges comprises"}</span>
                   </span>
                 </Link>
               ) : (

@@ -6,6 +6,7 @@ import { creerBail } from "@/actions/baux";
 import { BailForm } from "@/components/baux/bail-form";
 import { Alerte, Card, CardBody, PageHeader } from "@/components/ui";
 import { entiteCouranteId } from "@/lib/entite";
+import { optionTvaEffective } from "@/lib/tva";
 
 export const metadata = { title: "Nouveau bail" };
 
@@ -13,7 +14,7 @@ export default async function NouveauBailPage({ searchParams }: { searchParams: 
   const sp = await searchParams;
   const entiteId = await entiteCouranteId();
   const [lots, locataires] = await Promise.all([
-    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } } } }),
+    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: { select: { typePersonne: true } }, immeuble: { select: { optionTva: true } } } }),
     prisma.locataire.findMany({ where: { entiteId }, orderBy: [{ nom: "asc" }, { prenom: "asc" }] }),
   ]);
   const lotId = entierParam(sp, "lotId");
@@ -36,7 +37,7 @@ export default async function NouveauBailPage({ searchParams }: { searchParams: 
             action={creerBail}
             initial={{ lotId: lotId ?? undefined, type: lotChoisi?.meuble ? "MEUBLE" : "NON_MEUBLE", loyerHC: lotChoisi?.loyerIndicatif ?? undefined, charges: lotChoisi?.chargesIndicatives ?? undefined }}
             locataireIdsInitiaux={locataireId && locataires.some((l) => l.id === locataireId) ? [locataireId] : []}
-            lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, meuble: l.meuble, bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE", loyerIndicatif: l.loyerIndicatif, chargesIndicatives: l.chargesIndicatives }))}
+            lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, type: l.type, meuble: l.meuble, optionTva: optionTvaEffective(l), bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE", loyerIndicatif: l.loyerIndicatif, chargesIndicatives: l.chargesIndicatives }))}
             locataires={locataires.map((l) => ({ id: l.id, nom: nomComplet(l), detail: [l.email, l.ville].filter(Boolean).join(" · ") || null }))}
             annulerHref="/baux"
             libelleEnvoi="Créer le bail"

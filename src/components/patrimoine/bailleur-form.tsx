@@ -44,7 +44,9 @@ export function BailleurForm({
         <Field label="SIREN" name="siren" error={e.siren} hint="Pour une société.">
           <Input name="siren" defaultValue={valeurInitiale(state, "siren", initial.siren)} inputMode="numeric" placeholder="ex. 123 456 789" />
         </Field>
-        <div className="hidden sm:block" />
+        <Field label="N° de TVA intracommunautaire" name="numeroTva" error={e.numeroTva} hint="Obligatoire sur les avis d'échéance et quittances des loyers soumis à la TVA.">
+          <Input name="numeroTva" defaultValue={valeurInitiale(state, "numeroTva", initial.numeroTva)} placeholder="ex. FR12 345678901" />
+        </Field>
         <Field label="IBAN" name="iban" error={e.iban} hint="Imprimé sur les avis d'échéance pour le règlement par virement.">
           <Input name="iban" defaultValue={valeurInitiale(state, "iban", initial.iban)} placeholder="ex. FR76 1027 8021 3400 0203 4560 187" />
         </Field>

@@ -8,7 +8,7 @@ import { montantPourSaisie } from "@/lib/montants";
 import { Checkbox, Field, FormActions, FormMessage, Input, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { ButtonLink } from "@/components/ui";
 
-export type ImmeubleOption = { id: number; nom: string; adresse: string; complementAdresse: string | null; codePostal: string; ville: string; bailleurId: number | null };
+export type ImmeubleOption = { id: number; nom: string; adresse: string; complementAdresse: string | null; codePostal: string; ville: string; bailleurId: number | null; optionTva: boolean };
 
 export function LotForm({
   action,
@@ -34,11 +34,18 @@ export function LotForm({
     ville: valeurInitiale(state, "ville", initial.ville),
   });
   const [bailleurId, setBailleurId] = useState(valeurInitiale(state, "bailleurId", initial.bailleurId));
+  const [immeubleId, setImmeubleId] = useState(valeurInitiale(state, "immeubleId", initial.immeubleId));
   const [type, setType] = useState(valeurInitiale(state, "type", initial.type ?? "APPARTEMENT"));
+  const [optionTva, setOptionTva] = useState(state?.values ? state.values.optionTva === "on" : !!initial.optionTva);
+  const immeuble = immeubles.find((i) => String(i.id) === immeubleId);
+  // L'option TVA du lot n'est possible que si l'immeuble a lui-même opté (ou si le lot ne dépend d'aucun immeuble).
+  const optionPossible = !immeuble || immeuble.optionTva;
 
   function choisirImmeuble(id: string) {
+    setImmeubleId(id);
     const im = immeubles.find((i) => String(i.id) === id);
     if (!im) return;
+    if (!im.optionTva) setOptionTva(false);
     setAdresse({ adresse: im.adresse, complementAdresse: im.complementAdresse ?? "", codePostal: im.codePostal, ville: im.ville });
     if (im.bailleurId && !bailleurId) setBailleurId(String(im.bailleurId));
   }
@@ -54,8 +61,8 @@ export function LotForm({
           <Select
             name="immeubleId"
             vide="Aucun immeuble"
-            options={immeubles.map((i) => ({ value: String(i.id), label: `${i.nom} — ${i.codePostal} ${i.ville}` }))}
-            defaultValue={valeurInitiale(state, "immeubleId", initial.immeubleId)}
+            options={immeubles.map((i) => ({ value: String(i.id), label: `${i.nom} — ${i.codePostal} ${i.ville}${i.optionTva ? " · option TVA" : ""}` }))}
+            value={immeubleId}
             onChange={(ev) => choisirImmeuble(ev.target.value)}
           />
         </Field>
@@ -63,7 +70,7 @@ export function LotForm({
           <Select name="type" options={options(TYPES_LOT)} value={type} onChange={(ev) => setType(ev.target.value)} />
         </Field>
         <div className="flex items-end pb-2.5">
-          <Checkbox name="meuble" label="Logement meublé" hint="Détermine le type de bail proposé." defaultChecked={state?.values ? state.values.meuble === "on" : !!initial.meuble} />
+          <Checkbox name="meuble" label="Meublé" hint="Logement meublé ou local équipé : détermine le type de bail proposé." defaultChecked={state?.values ? state.values.meuble === "on" : !!initial.meuble} />
         </div>
         <Field label="Adresse" name="adresse" requis error={e.adresse} className="sm:col-span-2">
           <Input name="adresse" value={adresse.adresse} onChange={(ev) => setAdresse({ ...adresse, adresse: ev.target.value })} invalide={!!e.adresse} placeholder="ex. 4 allée des Tilleuls" autoComplete="street-address" />
@@ -83,7 +90,7 @@ export function LotForm({
         <Field label="Nombre de pièces" name="nbPieces" error={e.nbPieces}>
           <Input name="nbPieces" inputMode="numeric" defaultValue={valeurInitiale(state, "nbPieces", initial.nbPieces)} invalide={!!e.nbPieces} placeholder="ex. 2" />
         </Field>
-        {type === "APPARTEMENT" && (
+        {type !== "MAISON" && (
           <>
             <Field label="Étage" name="etage" error={e.etage}>
               <Input name="etage" defaultValue={valeurInitiale(state, "etage", initial.etage)} placeholder="ex. RDC, 1er, 2e" />
@@ -100,6 +107,27 @@ export function LotForm({
         <Field label="Bailleur propriétaire" name="bailleurId" error={e.bailleurId} hint="Apparaît sur les avis d'échéance et les quittances." className="sm:col-span-2">
           <Select name="bailleurId" vide="À définir" options={bailleurs.map((b) => ({ value: String(b.id), label: b.nom }))} value={bailleurId} onChange={(ev) => setBailleurId(ev.target.value)} />
         </Field>
+        <fieldset className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+          <legend className="px-1 text-sm font-semibold text-navy-900">TVA sur les loyers</legend>
+          <Checkbox
+            name="optionTva"
+            label="Loyers de ce lot soumis à la TVA"
+            hint={
+              optionPossible
+                ? "Local commercial ou professionnel pour lequel le bailleur a opté (TVA à 20 %), ou hébergement avec prestations para-hôtelières (10 %). Sans effet sur une location à usage d'habitation, toujours exonérée."
+                : `L'immeuble « ${immeuble?.nom} » n'a pas opté pour la TVA : activez d'abord l'option sur sa fiche.`
+            }
+            checked={optionTva}
+            onChange={(ev) => setOptionTva(ev.target.checked)}
+            disabled={!optionPossible}
+          />
+          {e.optionTva && <p className="mt-1.5 text-xs text-red-600">{e.optionTva}</p>}
+          {optionTva && (
+            <Field label="Date d'effet de l'option" name="optionTvaDate" error={e.optionTvaDate} hint="Facultatif : premier jour du mois au cours duquel l'option a été déclarée au service des impôts." className="mt-3 max-w-xs">
+              <Input name="optionTvaDate" type="date" defaultValue={valeurInitiale(state, "optionTvaDate", initial.optionTvaDate ? new Date(initial.optionTvaDate).toISOString().slice(0, 10) : "")} invalide={!!e.optionTvaDate} />
+            </Field>
+          )}
+        </fieldset>
         <Field label="Description" name="description" error={e.description} className="sm:col-span-2">
           <Textarea name="description" rows={3} defaultValue={valeurInitiale(state, "description", initial.description)} placeholder="Équipements, parking, cave, DPE…" />
         </Field>

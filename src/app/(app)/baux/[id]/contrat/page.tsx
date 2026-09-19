@@ -27,7 +27,23 @@ export default async function ContratPage({ params, searchParams }: { params: Pa
   const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataires: includeLocataires } });
   if (!b) notFound();
   const modele = emailContrat(b);
-  const modeleParDefaut = modelesBaux.find((m) => (b.type === "MEUBLE" && m.nom.toLowerCase().includes("meublé")) || (b.type === "MOBILITE" && m.nom.toLowerCase().includes("mobilité")) || (b.type === "NON_MEUBLE" && m.nom.toLowerCase().includes("logement vide")));
+  const modeleParDefaut = modelesBaux.find((m) => {
+    const nom = m.nom.toLowerCase();
+    switch (b.type) {
+      case "MEUBLE":
+        return nom.includes("meublé") && !nom.includes("tourisme") && !nom.includes("saisonni");
+      case "MOBILITE":
+        return nom.includes("mobilité");
+      case "NON_MEUBLE":
+        return nom.includes("logement vide");
+      case "COMMERCIAL":
+        return nom.includes("commercial") && !nom.includes("dérogatoire");
+      case "PROFESSIONNEL":
+        return nom.includes("professionnel");
+      case "SAISONNIER":
+        return nom.includes("saisonni") || nom.includes("tourisme");
+    }
+  });
   const pdfHref = `/api/baux/${b.id}/contrat.pdf`;
   return (
     <>

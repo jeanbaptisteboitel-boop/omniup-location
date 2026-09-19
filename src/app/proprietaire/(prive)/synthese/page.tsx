@@ -42,7 +42,7 @@ export default async function ProprietaireSynthesePage({ searchParams }: { searc
       />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat libelle={`Recettes ${annee}`} valeur={formatEuros(total.recettes)} detail={`${formatEuros(total.loyers)} de loyers + ${formatEuros(total.charges)} de charges encaissés`} ton="cyan" />
+        <Stat libelle={`Recettes ${annee}`} valeur={formatEuros(total.recettes)} detail={`${formatEuros(total.loyers)} de loyers + ${formatEuros(total.charges)} de charges encaissés${total.tva > 0 ? ` (hors TVA collectée : ${formatEuros(total.tva)})` : ""}`} ton="cyan" />
         <Stat libelle={`Dépenses ${annee}`} valeur={formatEuros(totalDepenses)} detail={avecInterets ? `dont ${formatEuros(arrondir2(total.interets + total.assurance))} d'intérêts d'emprunt et d'assurance` : "dépenses enregistrées par votre gestionnaire"} />
         <Stat libelle="Résultat" valeur={formatEuros(total.resultat)} detail={annee >= anneeCourante ? `provisoire au ${formatDate(auj)}` : "exercice clos"} sombre />
       </div>

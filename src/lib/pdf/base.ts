@@ -59,7 +59,7 @@ export function lignesBailleur(b: Bailleur | null): { nom: string; lignes: strin
   if (!b) return { nom: "[Bailleur non renseigné]", lignes: ["Indiquez le bailleur dans la fiche du lot."] };
   return {
     nom: b.nom,
-    lignes: [...(b.representant ? [`représenté(e) par ${b.representant}`] : []), ...adresseSurPlusieursLignes(b), ...(b.email ? [b.email] : []), ...(b.telephone ? [b.telephone] : [])],
+    lignes: [...(b.representant ? [`représenté(e) par ${b.representant}`] : []), ...adresseSurPlusieursLignes(b), ...(b.email ? [b.email] : []), ...(b.telephone ? [b.telephone] : []), ...(b.numeroTva ? [`N° TVA ${b.numeroTva}`] : [])],
   };
 }
 

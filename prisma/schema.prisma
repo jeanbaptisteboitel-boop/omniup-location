@@ -162,6 +162,8 @@ model Bailleur {
   email             String?
   telephone         String?
   siren             String?
+  /// Numéro de TVA intracommunautaire, imprimé sur les avis d'échéance et quittances soumis à TVA.
+  numeroTva         String?
   iban              String?
   bic               String?
   notes             String?
@@ -189,6 +191,9 @@ model Immeuble {
   codePostal        String
   ville             String
   notes             String?
+  /// Option pour la TVA sur les loyers des locaux professionnels ou commerciaux (CGI, art. 260 2°), exercée immeuble par immeuble.
+  optionTva         Boolean   @default(false)
+  optionTvaDate     DateTime?
   bailleurId        Int?
   bailleur          Bailleur? @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
   lots              Lot[]
@@ -203,6 +208,8 @@ model Immeuble {
 enum TypeLot {
   APPARTEMENT
   MAISON
+  LOCAL_COMMERCIAL
+  LOCAL_PROFESSIONNEL
 }
 
 /// Lot : le bien loué (appartement ou maison).
@@ -222,6 +229,9 @@ model Lot {
   meuble             Boolean   @default(false)
   loyerIndicatif     Float?
   chargesIndicatives Float?
+  /// Loyers du lot soumis à la TVA (option exercée pour ce local, effective si l'immeuble a lui-même opté).
+  optionTva          Boolean   @default(false)
+  optionTvaDate      DateTime?
   description        String?
   bailleurId         Int?
   bailleur           Bailleur? @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
@@ -300,6 +310,9 @@ enum TypeBail {
   NON_MEUBLE
   MEUBLE
   MOBILITE
+  COMMERCIAL
+  PROFESSIONNEL
+  SAISONNIER
 }
 
 enum StatutBail {
@@ -324,6 +337,8 @@ model Bail {
   loyerHC            Float
   charges            Float            @default(0)
   chargesForfait     Boolean          @default(false)
+  /// Taux de TVA appliqué au loyer et aux charges (0 = exonéré ; 10 ou 20).
+  tauxTva            Float            @default(0)
   depotGarantie      Float            @default(0)
   jourEcheance       Int              @default(1)
   motifMobilite      String?
@@ -402,6 +417,9 @@ model AppelLoyer {
   loyer              Float
   charges            Float
   total              Float
+  /// TVA de l'appel : taux appliqué et montant ; `total` est toutes taxes comprises.
+  tauxTva            Float      @default(0)
+  montantTva         Float      @default(0)
   prorata            Boolean    @default(false)
   dateEnvoiAvis      DateTime?
   dateEnvoiQuittance DateTime?

@@ -11,8 +11,10 @@ export type LigneSynthese = {
   nom: string;
   ville: string;
   bailleur: string | null;
+  /** Loyers et charges encaissés hors taxes ; `tva` : TVA collectée sur ces encaissements (hors recettes). */
   loyers: number;
   charges: number;
+  tva: number;
   recettes: number;
   depenses: Record<CategorieDepense, number>;
   totalDepenses: number;
@@ -53,15 +55,18 @@ export async function calculerSynthese(annee: number, entiteId: number, filtre: 
   ]);
 
   const lignes = new Map<string, LigneSynthese>();
-  for (const l of lots) lignes.set(`lot:${l.id}`, { cle: `lot:${l.id}`, type: "lot", id: l.id, nom: l.nom, ville: l.ville, bailleur: l.bailleur?.nom ?? null, loyers: 0, charges: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 });
-  for (const i of immeubles) lignes.set(`immeuble:${i.id}`, { cle: `immeuble:${i.id}`, type: "immeuble", id: i.id, nom: i.nom, ville: i.ville, bailleur: i.bailleur?.nom ?? null, loyers: 0, charges: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 });
+  for (const l of lots) lignes.set(`lot:${l.id}`, { cle: `lot:${l.id}`, type: "lot", id: l.id, nom: l.nom, ville: l.ville, bailleur: l.bailleur?.nom ?? null, loyers: 0, charges: 0, tva: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 });
+  for (const i of immeubles) lignes.set(`immeuble:${i.id}`, { cle: `immeuble:${i.id}`, type: "immeuble", id: i.id, nom: i.nom, ville: i.ville, bailleur: i.bailleur?.nom ?? null, loyers: 0, charges: 0, tva: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 });
 
   for (const p of paiements) {
     const ligne = lignes.get(`lot:${p.appel.bail.lotId}`);
     if (!ligne) continue;
+    // Ventilation du paiement au prorata de l'appel : loyer HT, charges HT et TVA collectée.
     const partLoyer = p.appel.total > 0 ? p.montant * (p.appel.loyer / p.appel.total) : p.montant;
+    const partTva = p.appel.total > 0 ? p.montant * (p.appel.montantTva / p.appel.total) : 0;
     ligne.loyers += partLoyer;
-    ligne.charges += p.montant - partLoyer;
+    ligne.tva += partTva;
+    ligne.charges += p.montant - partLoyer - partTva;
   }
   for (const d of depenses) {
     const ligne = lignes.get(d.lotId ? `lot:${d.lotId}` : `immeuble:${d.immeubleId}`);
@@ -75,11 +80,12 @@ export async function calculerSynthese(annee: number, entiteId: number, filtre: 
     ligne.assurance += e.assurance;
   }
 
-  const total: LigneSynthese = { cle: "total", type: "lot", id: 0, nom: "Total", ville: "", bailleur: null, loyers: 0, charges: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 };
+  const total: LigneSynthese = { cle: "total", type: "lot", id: 0, nom: "Total", ville: "", bailleur: null, loyers: 0, charges: 0, tva: 0, recettes: 0, depenses: vide(), totalDepenses: 0, interets: 0, assurance: 0, resultat: 0 };
   const resultat: LigneSynthese[] = [];
   for (const ligne of lignes.values()) {
     ligne.loyers = arrondir2(ligne.loyers);
     ligne.charges = arrondir2(ligne.charges);
+    ligne.tva = arrondir2(ligne.tva);
     ligne.recettes = arrondir2(ligne.loyers + ligne.charges);
     for (const c of CATEGORIES) ligne.depenses[c] = arrondir2(ligne.depenses[c]);
     ligne.totalDepenses = somme(CATEGORIES.map((c) => ligne.depenses[c]));
@@ -91,6 +97,7 @@ export async function calculerSynthese(annee: number, entiteId: number, filtre: 
     resultat.push(ligne);
     total.loyers = arrondir2(total.loyers + ligne.loyers);
     total.charges = arrondir2(total.charges + ligne.charges);
+    total.tva = arrondir2(total.tva + ligne.tva);
     total.recettes = arrondir2(total.recettes + ligne.recettes);
     for (const c of CATEGORIES) total.depenses[c] = arrondir2(total.depenses[c] + ligne.depenses[c]);
     total.totalDepenses = arrondir2(total.totalDepenses + ligne.totalDepenses);

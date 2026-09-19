@@ -7,6 +7,7 @@ import { aujourdhui, formatDate } from "@/lib/dates";
 import { formatEuros } from "@/lib/montants";
 import { Badge, ButtonLink, Card, CardHeader, EmptyState, PageHeader, Stat, Tableau, TableauPied, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
+import { montantsMensuels } from "@/lib/tva";
 
 export const metadata = { title: "Espace propriétaire" };
 export const dynamic = "force-dynamic";
@@ -69,7 +70,7 @@ export default async function ProprietaireAccueil({ searchParams }: { searchPara
                       <Badge ton="orange">Vacant</Badge>
                     )}
                   </Td>
-                  <Td droite className="whitespace-nowrap">{bail ? formatEuros(bail.loyerHC + bail.charges) : <span className="text-slate-400">—</span>}</Td>
+                  <Td droite className="whitespace-nowrap">{bail ? formatEuros(montantsMensuels(bail).ttc) : <span className="text-slate-400">—</span>}</Td>
                   <Td droite className={`whitespace-nowrap font-semibold ${solde.total > 0 ? (solde.enRetard > 0 ? "text-red-700" : "text-amber-700") : "text-emerald-700"}`}>
                     {formatEuros(solde.total)}
                     {solde.enRetard > 0 && <span className="block text-xs font-normal text-red-700">dont {formatEuros(solde.enRetard)} en retard</span>}

@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { TYPES_BAIL, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne, nomComplet } from "./libelles";
 import { includeLocataires } from "./locataires";
 import { REGLES_BAIL, dureeEnMois } from "./bail-regles";
+import { libelleTaux, montantsMensuels, usageHabitation } from "./tva";
 import { formatDate, formatDateLongue } from "./dates";
 import { formatEuros, formatNombre } from "./montants";
 import { entiteCouranteId } from "@/lib/entite";
@@ -57,7 +58,12 @@ export async function ficheBail(bailId: number): Promise<{ fiche: string; bail: 
     `Date de fin : ${formatDateLongue(bail.dateFin)} (durée : ${dureeEnMois(bail.dateDebut, bail.dateFin)} mois)${regle.reconductionTacite ? ", avec reconduction tacite" : ", sans renouvellement possible"}`,
     `Loyer mensuel hors charges : ${formatEuros(bail.loyerHC)}`,
     bail.charges > 0 ? `Charges mensuelles : ${formatEuros(bail.charges)} (${bail.chargesForfait ? "forfait" : "provision sur charges avec régularisation annuelle"})` : "Charges : aucune",
-    `Total mensuel : ${formatEuros(bail.loyerHC + bail.charges)}`,
+    `Total mensuel : ${formatEuros(bail.loyerHC + bail.charges)}${bail.tauxTva > 0 ? " hors taxes" : ""}`,
+    bail.tauxTva > 0
+      ? `TVA : loyer et charges soumis à la TVA au taux de ${libelleTaux(bail.tauxTva)} (soit ${formatEuros(montantsMensuels(bail).tva)} par mois, total TTC ${formatEuros(montantsMensuels(bail).ttc)})`
+      : usageHabitation(bail.type)
+        ? "TVA : exonéré (location à usage d'habitation)"
+        : "TVA : non soumis (le bailleur n'a pas opté)",
     `Paiement : mensuel, d'avance, le ${bail.jourEcheance} de chaque mois`,
     bail.depotGarantie > 0 ? `Dépôt de garantie : ${formatEuros(bail.depotGarantie)}` : "Dépôt de garantie : aucun",
     regle.revisionIRL

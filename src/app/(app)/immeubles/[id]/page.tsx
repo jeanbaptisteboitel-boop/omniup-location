@@ -11,6 +11,7 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
+import { montantsMensuels } from "@/lib/tva";
 
 const pluriel = (n: number) => (n > 1 ? "s" : "");
 
@@ -30,7 +31,8 @@ export default async function ImmeublePage({ params, searchParams }: { params: P
   if (!i) notFound();
   const loues = i.lots.filter((l) => l.baux.length > 0);
   const vacants = i.lots.length - loues.length;
-  const loyersMensuels = somme(loues.map((l) => l.baux[0].loyerHC + l.baux[0].charges));
+  const loyersMensuels = somme(loues.map((l) => montantsMensuels(l.baux[0]).ttc));
+  const lotsSoumisTva = i.lots.filter((l) => l.optionTva).length;
 
   return (
     <>
@@ -69,6 +71,7 @@ export default async function ImmeublePage({ params, searchParams }: { params: P
                 items={[
                   { label: "Bailleur", valeur: i.bailleur ? <Link href={`/bailleurs/${i.bailleur.id}`} className="text-navy-800 hover:underline">{i.bailleur.nom}</Link> : <span className="text-slate-500">Plusieurs propriétaires / non renseigné</span> },
                   { label: "Adresse", valeur: adresseSurPlusieursLignes(i).map((l, k) => <span key={k} className="block">{l}</span>) },
+                  { label: "Option pour la TVA", valeur: i.optionTva ? `Oui${i.optionTvaDate ? ` · à effet du ${formatDate(i.optionTvaDate)}` : ""} · ${lotsSoumisTva} lot${lotsSoumisTva > 1 ? "s" : ""} soumis à la TVA` : "Non" },
                   ...(i.notes ? [{ label: "Notes", valeur: <span className="whitespace-pre-line">{i.notes}</span> }] : []),
                 ]}
               />

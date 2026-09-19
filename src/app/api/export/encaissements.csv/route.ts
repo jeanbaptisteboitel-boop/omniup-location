@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
     orderBy: { date: "asc" },
   });
   const csv = versCSV(
-    ["Date", "Bien", "Bailleur", "Locataire", "Période", "N° appel", "Mode", "Référence", "Montant", "Part loyer", "Part charges"],
+    ["Date", "Bien", "Bailleur", "Locataire", "Période", "N° appel", "Mode", "Référence", "Montant", "Part loyer HT", "Part charges HT", "Part TVA", "Taux TVA"],
     paiements.map((p) => {
       const partLoyer = p.appel.total > 0 ? arrondir2(p.montant * (p.appel.loyer / p.appel.total)) : p.montant;
-      return [formatDate(p.date), p.appel.bail.lot.nom, p.appel.bail.lot.bailleur?.nom ?? "", nomsLocataires(p.appel.bail.locataires), formatPeriode(p.appel.periode), numeroAppel(p.appel.id), MODES_PAIEMENT[p.mode], p.reference, p.montant, partLoyer, arrondir2(p.montant - partLoyer)];
+      const partTva = p.appel.total > 0 ? arrondir2(p.montant * (p.appel.montantTva / p.appel.total)) : 0;
+      return [formatDate(p.date), p.appel.bail.lot.nom, p.appel.bail.lot.bailleur?.nom ?? "", nomsLocataires(p.appel.bail.locataires), formatPeriode(p.appel.periode), numeroAppel(p.appel.id), MODES_PAIEMENT[p.mode], p.reference, p.montant, partLoyer, arrondir2(p.montant - partLoyer - partTva), partTva, p.appel.tauxTva];
     }),
   );
   return reponseCSV(csv, `encaissements-${annee}.csv`);
