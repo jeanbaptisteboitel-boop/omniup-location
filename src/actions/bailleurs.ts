@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { echec, erreur, type FormState } from "@/lib/forms";
 import { analyser, zCodePostal, zEmailOpt, zEnum, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaBailleur = z.object({
   typePersonne: zEnum(["PHYSIQUE", "MORALE"]),
@@ -25,6 +26,7 @@ const schemaBailleur = z.object({
 });
 
 export async function creerBailleur(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaBailleur, fd);
   if (!r.success) return echec(fd, r.errors);
   const b = await prisma.bailleur.create({ data: { ...r.data, entiteId: await entiteCouranteId() } });
@@ -33,6 +35,7 @@ export async function creerBailleur(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function modifierBailleur(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaBailleur, fd);
   if (!r.success) return echec(fd, r.errors);
   const existant = await prisma.bailleur.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
@@ -44,6 +47,7 @@ export async function modifierBailleur(id: number, _prev: FormState, fd: FormDat
 }
 
 export async function supprimerBailleur(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const existant = await prisma.bailleur.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
   if (!existant) redirect("/bailleurs");

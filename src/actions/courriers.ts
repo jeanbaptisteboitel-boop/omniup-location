@@ -13,6 +13,7 @@ import { envoyerEmail } from "@/lib/mail";
 import { emailCourrier } from "@/lib/mail-modeles";
 import { entiteCouranteId } from "@/lib/entite";
 import { emailsLocataires } from "@/lib/locataires";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaCourrier = z.object({
   type: zEnum(["REVISION_LOYER", "RELANCE", "AUTRE"]),
@@ -21,6 +22,7 @@ const schemaCourrier = z.object({
 });
 
 export async function creerCourrier(bailId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaCourrier, fd);
   if (!r.success) return echec(fd, r.errors);
   const bail = await prisma.bail.findFirst({ where: { id: bailId, entiteId: await entiteCouranteId() }, select: { id: true } });
@@ -31,6 +33,7 @@ export async function creerCourrier(bailId: number, _prev: FormState, fd: FormDa
 }
 
 export async function modifierCourrier(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaCourrier, fd);
   if (!r.success) return echec(fd, r.errors);
   const existant = await prisma.courrier.findFirst({ where: { id, bail: { entiteId: await entiteCouranteId() } }, select: { id: true } });
@@ -42,6 +45,7 @@ export async function modifierCourrier(id: number, _prev: FormState, fd: FormDat
 }
 
 export async function supprimerCourrier(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const c = await prisma.courrier.findFirst({ where: { id, bail: { entiteId: await entiteCouranteId() } } });
   if (!c) redirect("/baux");
@@ -50,7 +54,20 @@ export async function supprimerCourrier(fd: FormData): Promise<void> {
   redirect(avecMessage(`/baux/${c.bailId}`, "Courrier supprimé."));
 }
 
+/** Courrier remis en main propre ou posté : il devient visible dans l'espace locataire. */
+export async function marquerCourrierRemis(fd: FormData): Promise<void> {
+  await exigerEcriture();
+  const id = Number(fd.get("id"));
+  const c = await prisma.courrier.findFirst({ where: { id, bail: { entiteId: await entiteCouranteId() } } });
+  if (!c) redirect("/baux");
+  await prisma.courrier.update({ where: { id }, data: { dateEnvoi: c.dateEnvoi ? null : new Date() } });
+  revalidatePath(`/courriers/${id}`);
+  revalidatePath(`/baux/${c.bailId}`);
+  redirect(avecMessage(`/courriers/${id}`, c.dateEnvoi ? "Courrier marqué comme non remis : il n'apparaît plus dans l'espace locataire." : "Courrier marqué comme remis : il est visible dans l'espace locataire."));
+}
+
 export async function envoyerCourrier(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const c = await chargerCourrier(id);
   if (!c || c.bail.entiteId !== (await entiteCouranteId())) return erreur(fd, "Courrier introuvable.");
   const email = emailsLocataires(c.bail.locataires);

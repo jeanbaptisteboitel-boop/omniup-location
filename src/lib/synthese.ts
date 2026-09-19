@@ -1,5 +1,5 @@
 import "server-only";
-import type { CategorieDepense } from "@prisma/client";
+import type { CategorieDepense, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { jourUTC } from "./dates";
 import { arrondir2, somme } from "./montants";
@@ -27,18 +27,29 @@ function vide(): Record<CategorieDepense, number> {
   return Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<CategorieDepense, number>;
 }
 
-/** Recettes encaissées et dépenses de l'année, bien par bien (lots, puis immeubles pour les dépenses communes). */
-export async function calculerSynthese(annee: number, entiteId: number): Promise<{ lignes: LigneSynthese[]; total: LigneSynthese; annees: number[] }> {
+/**
+ * Recettes encaissées et dépenses de l'année, bien par bien (lots, puis immeubles pour les dépenses communes).
+ * `filtre.bailleurId` restreint le calcul aux lots et immeubles d'un bailleur (espace propriétaire) : mêmes règles, périmètre réduit.
+ */
+export async function calculerSynthese(annee: number, entiteId: number, filtre: { bailleurId?: number } = {}): Promise<{ lignes: LigneSynthese[]; total: LigneSynthese; annees: number[] }> {
   const debut = jourUTC(annee, 1, 1);
   const fin = jourUTC(annee + 1, 1, 1);
+  const { bailleurId } = filtre;
+  const whereLot: Prisma.LotWhereInput = bailleurId ? { entiteId, bailleurId } : { entiteId };
+  const whereImmeuble: Prisma.ImmeubleWhereInput = bailleurId ? { entiteId, bailleurId } : { entiteId };
+  const whereBail: Prisma.BailWhereInput = bailleurId ? { entiteId, lot: { bailleurId } } : { entiteId };
+  // Dépenses et emprunts : rattachés à un lot ou à un immeuble du bailleur.
+  const whereBien = bailleurId ? { OR: [{ lot: { bailleurId } }, { immeuble: { bailleurId } }] } : {};
+  const whereDepense: Prisma.DepenseWhereInput = { entiteId, ...whereBien };
+  const whereEmprunt: Prisma.EmpruntWhereInput = { entiteId, ...whereBien };
   const [lots, immeubles, paiements, depenses, echeances, anneesPaiements, anneesDepenses] = await Promise.all([
-    prisma.lot.findMany({ where: { entiteId }, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: true } }),
-    prisma.immeuble.findMany({ where: { entiteId }, orderBy: { nom: "asc" }, include: { bailleur: true } }),
-    prisma.paiement.findMany({ where: { date: { gte: debut, lt: fin }, appel: { bail: { entiteId } } }, include: { appel: { include: { bail: { select: { lotId: true } } } } } }),
-    prisma.depense.findMany({ where: { entiteId, date: { gte: debut, lt: fin } } }),
-    prisma.echeanceEmprunt.findMany({ where: { date: { gte: debut, lt: fin }, emprunt: { entiteId } }, include: { emprunt: { select: { lotId: true, immeubleId: true } } } }),
-    prisma.paiement.findMany({ where: { appel: { bail: { entiteId } } }, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
-    prisma.depense.findMany({ where: { entiteId }, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
+    prisma.lot.findMany({ where: whereLot, orderBy: [{ ville: "asc" }, { nom: "asc" }], include: { bailleur: true } }),
+    prisma.immeuble.findMany({ where: whereImmeuble, orderBy: { nom: "asc" }, include: { bailleur: true } }),
+    prisma.paiement.findMany({ where: { date: { gte: debut, lt: fin }, appel: { bail: whereBail } }, include: { appel: { include: { bail: { select: { lotId: true } } } } } }),
+    prisma.depense.findMany({ where: { ...whereDepense, date: { gte: debut, lt: fin } } }),
+    prisma.echeanceEmprunt.findMany({ where: { date: { gte: debut, lt: fin }, emprunt: whereEmprunt }, include: { emprunt: { select: { lotId: true, immeubleId: true } } } }),
+    prisma.paiement.findMany({ where: { appel: { bail: whereBail } }, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
+    prisma.depense.findMany({ where: whereDepense, select: { date: true }, orderBy: { date: "asc" }, take: 1 }),
   ]);
 
   const lignes = new Map<string, LigneSynthese>();

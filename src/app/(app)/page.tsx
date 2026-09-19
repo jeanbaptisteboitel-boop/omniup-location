@@ -12,6 +12,8 @@ import { ButtonLink, Card, CardHeader, PageHeader, Pastille, Stat, Tableau, Td, 
 import { IconeChevronDroite, IconeCoche } from "@/components/icones";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { entiteCourante } from "@/lib/entite";
+import type { SearchParams } from "@/lib/params";
+import { Flash } from "@/components/flash";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +22,8 @@ type Tache = { cle: string; href: string; ton: Ton; n: ReactNode; texte: ReactNo
 
 const pluriel = (n: number, s = "s") => (n > 1 ? s : "");
 
-export default async function TableauDeBord() {
+export default async function TableauDeBord({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
   await synchroniserAppelsLoyer();
   const auj = aujourdhui();
   const annee = auj.getUTCFullYear();
@@ -107,6 +110,7 @@ export default async function TableauDeBord() {
           )
         }
       />
+      <Flash sp={sp} />
 
       {premierPas && (
         <Card className="mb-6">

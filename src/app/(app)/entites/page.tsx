@@ -4,6 +4,7 @@ import type { SearchParams } from "@/lib/params";
 import { TYPES_ENTITE } from "@/lib/libelles";
 import { avecMessage } from "@/lib/erreurs";
 import { entiteCouranteId, multiEntitesActif } from "@/lib/entite";
+import { exigerSession } from "@/lib/utilisateurs";
 import { activerMultiEntites, changerEntite, creerEntite, desactiverMultiEntites, supprimerEntite } from "@/actions/entites";
 import { Badge, Button, ButtonLink, Card, PageHeader } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
@@ -25,6 +26,8 @@ function initiales(nom: string): string {
 }
 
 export default async function EntitesPage({ searchParams }: { searchParams: SearchParams }) {
+  const session = await exigerSession();
+  if (!session.superAdmin) redirect(avecMessage("/", "La gestion des entités est réservée au super-administrateur.", "erreur"));
   const multi = await multiEntitesActif();
   if (!multi) redirect(avecMessage("/parametres", "La gestion multi-entités n'est pas activée.", "erreur"));
   const sp = await searchParams;

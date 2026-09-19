@@ -11,6 +11,7 @@ import type { FichierTeleverse } from "@/lib/envoi-direct";
 import { analyser, zEnum, zTexteOpt } from "@/lib/validation";
 import { CATEGORIES_DOCUMENT } from "@/lib/libelles";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaDocument = z.object({
   categorie: zEnum(["PIECE_IDENTITE", "AVIS_IMPOSITION", "LETTRE_RECOMMANDATION", "JUSTIFICATIF_DOMICILE", "JUSTIFICATIF_REVENUS", "AUTRE"]),
@@ -18,6 +19,7 @@ const schemaDocument = z.object({
 });
 
 export async function ajouterDocument(locataireId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaDocument, fd);
   const errors = r.success ? {} : r.errors;
   const meta = fd.get("fichiers");
@@ -74,6 +76,7 @@ export async function ajouterDocument(locataireId: number, _prev: FormState, fd:
 }
 
 export async function supprimerDocument(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const doc = await prisma.document.findUnique({ where: { id }, include: { locataire: { select: { entiteId: true } } } });
   if (!doc || doc.locataire.entiteId !== (await entiteCouranteId())) return;

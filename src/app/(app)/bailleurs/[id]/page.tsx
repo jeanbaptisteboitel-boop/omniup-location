@@ -9,6 +9,9 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
+import { mailConfigure } from "@/lib/mail";
+import { lienAccesProprietaire, origineApplication } from "@/lib/proprietaire";
+import { AccesProprietaire } from "@/components/bailleurs/acces-proprietaire";
 
 const pluriel = (n: number) => (n > 1 ? "s" : "");
 
@@ -24,6 +27,7 @@ export default async function BailleurPage({ params, searchParams }: { params: P
   });
   if (!b) notFound();
   const nbLoues = b.lots.filter((l) => l.baux.length > 0).length;
+  const lien = b.accesJeton ? lienAccesProprietaire(await origineApplication(), b.accesJeton) : null;
 
   return (
     <>
@@ -50,24 +54,27 @@ export default async function BailleurPage({ params, searchParams }: { params: P
       <Flash sp={sp} />
       <div className="space-y-6">
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[repeat(auto-fit,minmax(320px,1fr))]">
-          <Card>
-            <CardHeader titre="Coordonnées" />
-            <CardBody>
-              <Infos
-                items={[
-                  { label: "Type", valeur: TYPES_PERSONNE[b.typePersonne] },
-                  { label: "Représentant", valeur: b.representant },
-                  { label: "Adresse", valeur: adresseSurPlusieursLignes(b).map((l, k) => <span key={k} className="block">{l}</span>) },
-                  { label: "SIREN", valeur: b.siren },
-                  { label: "Email", valeur: b.email },
-                  { label: "Téléphone", valeur: b.telephone },
-                  { label: "IBAN", valeur: b.iban },
-                  { label: "BIC", valeur: b.bic },
-                  ...(b.notes ? [{ label: "Notes", valeur: <span className="whitespace-pre-line">{b.notes}</span> }] : []),
-                ]}
-              />
-            </CardBody>
-          </Card>
+          <div className="flex min-w-0 flex-col gap-6">
+            <Card>
+              <CardHeader titre="Coordonnées" />
+              <CardBody>
+                <Infos
+                  items={[
+                    { label: "Type", valeur: TYPES_PERSONNE[b.typePersonne] },
+                    { label: "Représentant", valeur: b.representant },
+                    { label: "Adresse", valeur: adresseSurPlusieursLignes(b).map((l, k) => <span key={k} className="block">{l}</span>) },
+                    { label: "SIREN", valeur: b.siren },
+                    { label: "Email", valeur: b.email },
+                    { label: "Téléphone", valeur: b.telephone },
+                    { label: "IBAN", valeur: b.iban },
+                    { label: "BIC", valeur: b.bic },
+                    ...(b.notes ? [{ label: "Notes", valeur: <span className="whitespace-pre-line">{b.notes}</span> }] : []),
+                  ]}
+                />
+              </CardBody>
+            </Card>
+            <AccesProprietaire bailleur={b} lien={lien} mailConfigure={mailConfigure()} />
+          </div>
 
           <Card>
             <CardHeader titre={`Immeubles (${b.immeubles.length})`} actions={<ButtonLink href="/immeubles/nouveau" taille="sm" variante="secondary">Nouvel immeuble</ButtonLink>} />

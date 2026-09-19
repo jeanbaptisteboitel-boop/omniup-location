@@ -13,10 +13,14 @@ import { TYPES_ENTITE } from "@/lib/libelles";
 import { messageErreur } from "@/lib/forms";
 import { formatDateHeure } from "@/lib/dates";
 import { derniereSynchronisation } from "@/lib/insee/lecture";
+import { redirect } from "next/navigation";
+import { avecMessage } from "@/lib/erreurs";
+import { estAdministrateur, exigerSession } from "@/lib/utilisateurs";
+import { turnstileConfigure } from "@/lib/turnstile";
 import { autoriserEnvoiDirect, envoyerEmailTest } from "@/actions/parametres";
 import { activerMultiEntites, desactiverMultiEntites, modifierEntite } from "@/actions/entites";
 import { Alerte, Button, ButtonLink, Card, CardBody, CardHeader, PageHeader } from "@/components/ui";
-import { IconeBailleur, IconeEntites, IconeEnvoyer, IconeEtincelle, IconeHorloge, IconeIndices, IconeOcr, IconeSignature, IconeStockage } from "@/components/icones";
+import { IconeBailleur, IconeEntites, IconeEnvoyer, IconeEtincelle, IconeHorloge, IconeIndices, IconeLocataires, IconeMotDePasse, IconeOcr, IconeSignature, IconeStockage } from "@/components/icones";
 import { CarteService } from "@/components/parametres/carte-service";
 import { EmailTest } from "@/components/parametres/email-test";
 import { EntiteForm } from "@/components/entites/entite-form";
@@ -50,7 +54,11 @@ function hoteBase(url: string): string {
 
 export default async function ParametresPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [entite, multi, nbEntites, syncIndices, nbSeries] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count(), derniereSynchronisation(), prisma.indiceSerie.count({ where: { active: true } })]);
+  const session = await exigerSession();
+  const [entite, multi, nbEntites, syncIndices, nbSeries, nbUtilisateurs] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count(), derniereSynchronisation(), prisma.indiceSerie.count({ where: { active: true } }), prisma.utilisateur.count({ where: { actif: true } })]);
+  if (!estAdministrateur(session, entite.id)) redirect(avecMessage("/", "Les paramètres sont réservés aux administrateurs de l'entité.", "erreur"));
+  const comptes = protectionActive();
+  const turnstile = turnstileConfigure();
   const indicesOk = !!syncIndices?.fin && !syncIndices.erreurs && Date.now() - syncIndices.fin.getTime() < 3 * 24 * 3600 * 1000;
   const mail = mailConfigure();
   const fournisseur = fournisseurMail();
@@ -62,7 +70,7 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
   const stockageOk = objet ? cors?.autorise !== false : !process.env.VERCEL;
   const cronSecret = !!process.env.CRON_SECRET;
   const envoiAuto = String(process.env.AVIS_ENVOI_AUTO ?? "").toLowerCase() === "true";
-  const services: boolean[] = [true, multi, stockageOk, mail, cronSecret, indicesOk, ia, ocr, false];
+  const services: boolean[] = [true, multi, comptes, turnstile, stockageOk, mail, cronSecret, indicesOk, ia, ocr, false];
   const nbOk = services.filter(Boolean).length;
   return (
     <>
@@ -96,6 +104,21 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
                 </form>
               )
             }
+          />
+          <CarteService
+            icone={<IconeLocataires />}
+            nom="Comptes utilisateurs"
+            configure={comptes}
+            detail={comptes ? `${nbUtilisateurs} ${nbUtilisateurs > 1 ? "comptes actifs" : "compte actif"} · connexion par email et mot de passe, rôle par entité (administrateur, gestionnaire, lecture seule)${process.env.APP_PASSWORD ? " · mot de passe principal actif" : ""}.` : "Définissez APP_SECRET (ou APP_PASSWORD) pour activer la connexion, puis créez le premier compte administrateur depuis la page de connexion."}
+            action={comptes && session.superAdmin ? <ButtonLink href="/utilisateurs" variante="secondary" taille="sm">Gérer les utilisateurs</ButtonLink> : undefined}
+            variables="APP_SECRET, APP_PASSWORD"
+          />
+          <CarteService
+            icone={<IconeMotDePasse />}
+            nom="Protection anti-robots"
+            configure={turnstile}
+            detail={turnstile ? "Cloudflare Turnstile actif sur les formulaires publics (connexion, mot de passe oublié, liens d'accès des locataires et propriétaires)." : "Cloudflare Turnstile non configuré : les formulaires publics fonctionnent sans contrôle anti-robots. Créez un widget sur dash.cloudflare.com (Turnstile) et renseignez ses clés."}
+            variables="TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY"
           />
           <CarteService
             icone={<IconeStockage />}

@@ -8,6 +8,7 @@ import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
 import { analyser, zBool, zCodePostal, zEntierOpt, zEnum, zIdOpt, zMontantOpt, zNombreOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaLot = z.object({
   type: zEnum(["APPARTEMENT", "MAISON"]),
@@ -35,6 +36,7 @@ async function verifierRattachements(entiteId: number, d: { bailleurId: number |
 }
 
 export async function creerLot(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaLot, fd);
   if (!r.success) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -46,6 +48,7 @@ export async function creerLot(_prev: FormState, fd: FormData): Promise<FormStat
 }
 
 export async function modifierLot(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaLot, fd);
   if (!r.success) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -60,6 +63,7 @@ export async function modifierLot(id: number, _prev: FormState, fd: FormData): P
 }
 
 export async function supprimerLot(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const lot = await prisma.lot.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { _count: { select: { baux: true, depenses: true, emprunts: true } } } });
   if (!lot) redirect("/lots");

@@ -7,6 +7,7 @@ import { IconeBail, IconeBailleur, IconeCalculatrice, IconeDepenses, IconeDocume
 import { protectionActive } from "@/lib/session";
 import { seDeconnecter } from "@/actions/session";
 import { entiteCourante, listeEntites, multiEntitesActif } from "@/lib/entite";
+import { ROLES, administreUneEntite, roleSur, sessionCourante, type Session } from "@/lib/utilisateurs";
 import { changerEntite } from "@/actions/entites";
 import { EntiteSwitcher } from "./entites/entite-switcher";
 
@@ -59,16 +60,28 @@ function Deconnexion() {
   );
 }
 
-async function PanneauNav({ multi }: { multi: boolean }) {
+async function PanneauNav({ multi, session }: { multi: boolean; session: Session | null }) {
   const entite = await entiteCourante();
   const entites = multi ? await listeEntites() : [];
-  const groupes = [...GROUPES, { titre: null, liens: [...(multi ? [{ href: "/entites", libelle: "Entités", icone: <IconeEntites /> }] : []), { href: "/parametres", libelle: "Paramètres", icone: <IconeParametres /> }] }];
+  const role = session ? roleSur(session, entite.id) : null;
+  const admin = session ? administreUneEntite(session) : false;
+  const groupes = [
+    ...GROUPES,
+    {
+      titre: null,
+      liens: [
+        ...(multi && session?.superAdmin ? [{ href: "/entites", libelle: "Entités", icone: <IconeEntites /> }] : []),
+        ...(admin && protectionActive() ? [{ href: "/utilisateurs", libelle: "Utilisateurs", icone: <IconeLocataires /> }] : []),
+        ...(role === "ADMINISTRATEUR" ? [{ href: "/parametres", libelle: "Paramètres", icone: <IconeParametres /> }] : []),
+      ],
+    },
+  ];
   return (
     <div className="flex h-full min-h-screen w-[260px] flex-col bg-navy-900 px-3 py-4 text-white">
       <Link href="/" className="flex items-center gap-3 px-2.5 py-1.5 text-white">
         <Marque />
       </Link>
-      {multi ? (
+      {multi && entites.length > 1 ? (
         <EntiteSwitcher entites={entites.map((e) => ({ id: e.id, nom: e.nom }))} couranteId={entite.id} action={changerEntite} />
       ) : (
         <Link href="/parametres" className="mx-2.5 mt-3 block truncate text-xs text-navy-300 hover:text-white" title="Nom de l'entité (modifiable dans Paramètres)">
@@ -91,6 +104,12 @@ async function PanneauNav({ multi }: { multi: boolean }) {
           </div>
         ))}
       </nav>
+      {session && protectionActive() && (
+        <div className="mt-3 border-t border-white/8 px-2.5 pt-2.5">
+          <Link href="/compte" className="block truncate text-xs font-semibold text-white hover:text-brand-cyan" title="Mon compte">{session.nom}</Link>
+          <p className="truncate text-[11px] text-navy-300">{session.superAdmin ? "Super-administrateur" : role ? ROLES[role] : ""}{role === "LECTURE" ? " · aucune modification possible" : ""}</p>
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between border-t border-white/8 px-2.5 pt-2.5">
         <p className="text-[11px] text-navy-300">Gestion locative · v0.4</p>
         <Deconnexion />
@@ -100,14 +119,14 @@ async function PanneauNav({ multi }: { multi: boolean }) {
 }
 
 export async function Sidebar() {
-  const multi = await multiEntitesActif();
+  const [multi, session] = await Promise.all([multiEntitesActif(), sessionCourante()]);
   return (
     <>
       <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 lg:block">
-        <PanneauNav multi={multi} />
+        <PanneauNav multi={multi} session={session} />
       </aside>
       <MobileNav>
-        <PanneauNav multi={multi} />
+        <PanneauNav multi={multi} session={session} />
       </MobileNav>
     </>
   );

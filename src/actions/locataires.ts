@@ -9,6 +9,7 @@ import { avecMessage, estContrainteReference } from "@/lib/erreurs";
 import { supprimerFichier } from "@/lib/storage";
 import { analyser, zCodePostalOpt, zDateOpt, zEmailOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaLocataire = z.object({
   civilite: zTexteOpt(10),
@@ -25,6 +26,7 @@ const schemaLocataire = z.object({
 });
 
 export async function creerLocataire(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaLocataire, fd);
   if (!r.success) return echec(fd, r.errors);
   const l = await prisma.locataire.create({ data: { ...r.data, entiteId: await entiteCouranteId() } });
@@ -33,6 +35,7 @@ export async function creerLocataire(_prev: FormState, fd: FormData): Promise<Fo
 }
 
 export async function modifierLocataire(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaLocataire, fd);
   if (!r.success) return echec(fd, r.errors);
   const existant = await prisma.locataire.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
@@ -44,6 +47,7 @@ export async function modifierLocataire(id: number, _prev: FormState, fd: FormDa
 }
 
 export async function supprimerLocataire(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const existant = await prisma.locataire.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
   if (!existant) redirect("/locataires");

@@ -75,3 +75,73 @@ export function emailContrat(b: { lot: { nom: string; adresse: string; complemen
   ];
   return { objet: `Projet de contrat de location - ${b.lot.nom}`, corps: lignes.join("\n") };
 }
+
+/** Lien d'accès à l'espace locataire. */
+export function emailAccesLocataire(l: { civilite: string | null; nom: string }, lien: string, expediteur: string | null): { objet: string; corps: string } {
+  const lignes = [
+    `Bonjour ${formuleAppel([l])},`,
+    "",
+    "Votre espace locataire est ouvert : vous y retrouverez votre bail, l'exemplaire signé du contrat, vos avis d'échéance, vos quittances, vos courriers et votre solde.",
+    "",
+    "Pour y accéder, ouvrez ce lien personnel (ne le transmettez à personne) :",
+    lien,
+    "",
+    "Conservez cet email : le lien reste valable tant qu'il n'est pas révoqué par votre bailleur.",
+    "",
+    "Cordialement,",
+    expediteur || "Votre bailleur",
+  ];
+  return { objet: "Votre espace locataire", corps: lignes.join("\n") };
+}
+
+/** Lien d'accès à l'espace propriétaire (bailleur). */
+export function emailAccesBailleur(b: { nom: string; representant: string | null }, lien: string, expediteur: string | null): { objet: string; corps: string } {
+  const lignes = [
+    `Bonjour${b.representant ? ` ${b.representant}` : ""},`,
+    "",
+    `Votre espace propriétaire${b.representant ? ` (${b.nom})` : ""} est ouvert : vous y suivez vos biens, les baux en cours, les loyers encaissés et en retard, les dépenses et la synthèse annuelle.`,
+    "",
+    "Pour y accéder, ouvrez ce lien personnel (ne le transmettez à personne) :",
+    lien,
+    "",
+    "Conservez cet email : le lien reste valable tant qu'il n'est pas révoqué par votre gestionnaire.",
+    "",
+    "Cordialement,",
+    expediteur || "Votre gestionnaire",
+  ];
+  return { objet: "Votre espace propriétaire", corps: lignes.join("\n") };
+}
+
+/** Invitation d'un utilisateur à choisir son mot de passe. */
+export function emailInvitationUtilisateur(nom: string, lien: string, invitePar: string, entites: string[]): { objet: string; corps: string } {
+  const lignes = [
+    `Bonjour ${nom},`,
+    "",
+    `${invitePar} vous a ouvert un accès à OMNIUP Location, l'application de gestion locative${entites.length ? ` (${entites.join(", ")})` : ""}.`,
+    "",
+    "Pour choisir votre mot de passe et vous connecter, ouvrez ce lien (valable 7 jours) :",
+    lien,
+    "",
+    "Si vous n'attendiez pas cet accès, ignorez simplement cet email.",
+    "",
+    "Cordialement,",
+    "OMNIUP Location",
+  ];
+  return { objet: "Votre accès à OMNIUP Location", corps: lignes.join("\n") };
+}
+
+/** Réinitialisation du mot de passe d'un utilisateur. */
+export function emailReinitialisationMotDePasse(nom: string, lien: string): { objet: string; corps: string } {
+  const lignes = [
+    `Bonjour ${nom},`,
+    "",
+    "Une réinitialisation de votre mot de passe OMNIUP Location a été demandée. Pour en choisir un nouveau, ouvrez ce lien (valable 2 heures) :",
+    lien,
+    "",
+    "Si vous n'êtes pas à l'origine de cette demande, ignorez cet email : votre mot de passe reste inchangé.",
+    "",
+    "Cordialement,",
+    "OMNIUP Location",
+  ];
+  return { objet: "Réinitialisation de votre mot de passe", corps: lignes.join("\n") };
+}

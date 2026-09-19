@@ -11,6 +11,7 @@ import { LIBELLES_FREQUENCE, serieRecente } from "@/lib/insee/lecture";
 import { synchroniserIndices } from "@/lib/insee/sync";
 import { verifierIdbank, verifierIdbanks } from "@/lib/insee/verification";
 import type { SerieIndice } from "@/lib/insee/utils";
+import { exigerEcriture } from "@/lib/droits";
 
 export type ReponseIndices = { ok: true; serie: SerieIndice } | { ok: false; erreur: string };
 
@@ -26,6 +27,7 @@ export async function chargerIndices(code: string): Promise<ReponseIndices> {
 const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
 
 export async function synchroniserMaintenant(): Promise<void> {
+  await exigerEcriture();
   const r = await synchroniserIndices({ declencheur: "manuel" });
   revalidatePath("/indices");
   const resume = `${pluriel(r.seriesInterrogees, "série interrogée", "séries interrogées")}, ${pluriel(r.observationsCreees, "valeur ajoutée", "valeurs ajoutées")}, ${pluriel(r.observationsMisesAJour, "valeur révisée", "valeurs révisées")}.`;
@@ -34,6 +36,7 @@ export async function synchroniserMaintenant(): Promise<void> {
 }
 
 export async function verifierIdbanksAction(): Promise<void> {
+  await exigerEcriture();
   const r = await verifierIdbanks();
   revalidatePath("/indices");
   const lignes = r.map((x) => `${x.code} (${x.idbank}) : ${x.ok ? `« ${x.libelleInsee} », ${x.message}` : `ÉCHEC, ${x.message}`}`);
@@ -51,6 +54,7 @@ const schemaSerie = z.object({
 
 /** Ajoute une série après vérification de l'idbank ; un code déjà suivi est remplacé (rebasage), l'ancienne série restant inactive avec son historique. */
 export async function ajouterSerie(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaSerie, fd);
   if (!r.success) return echec(fd, r.errors);
   const code = r.data.code.toUpperCase().replace(/\s+/g, "_");
@@ -80,6 +84,7 @@ export async function ajouterSerie(_prev: FormState, fd: FormData): Promise<Form
 }
 
 export async function basculerSerie(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const s = await prisma.indiceSerie.findUnique({ where: { id } });
   if (!s) redirect("/indices");

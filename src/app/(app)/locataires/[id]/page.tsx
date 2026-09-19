@@ -18,6 +18,9 @@ import { DocumentForm } from "@/components/locataires/document-form";
 import { BadgeStatutLocataire, bailCourant, statutLocataire } from "@/components/locataires/statut-locataire";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { mailConfigure } from "@/lib/mail";
+import { lienAcces, origineApplication } from "@/lib/espace";
+import { AccesEspace } from "@/components/locataires/acces-espace";
 
 /** Pièces demandées au candidat, dans l'ordre d'affichage du dossier. */
 const CATEGORIES_DEMANDEES: CategorieDocument[] = ["PIECE_IDENTITE", "AVIS_IMPOSITION", "JUSTIFICATIF_DOMICILE", "JUSTIFICATIF_REVENUS", "LETTRE_RECOMMANDATION"];
@@ -33,6 +36,7 @@ export default async function LocatairePage({ params, searchParams }: { params: 
 
   const statut = statutLocataire(l.baux);
   const bail = bailCourant(l.baux);
+  const lien = l.accesJeton ? lienAcces(await origineApplication(), l.accesJeton) : null;
   const autresBaux = l.baux.filter((b) => b.id !== bail?.id);
   const nom = nomComplet(l);
   const adresse = adresseSurPlusieursLignes(l);
@@ -77,6 +81,7 @@ export default async function LocatairePage({ params, searchParams }: { params: 
       <Flash sp={sp} />
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
         <Card>
           <CardHeader titre="Coordonnées" />
           <CardBody>
@@ -117,6 +122,8 @@ export default async function LocatairePage({ params, searchParams }: { params: 
             </div>
           )}
         </Card>
+        <AccesEspace locataire={l} lien={lien} mailConfigure={mailConfigure()} />
+        </div>
 
         <div className="flex min-w-0 flex-col gap-6">
           <Card>

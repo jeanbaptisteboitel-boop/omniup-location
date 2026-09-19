@@ -8,7 +8,10 @@ import { ajouterAnnees, aujourdhui, formatDate, formatPeriode, toISODate } from 
 import { formatEuros, formatNombre, somme } from "@/lib/montants";
 import { etatAppel } from "@/lib/loyers";
 import { synchroniserAppelsLoyer } from "@/lib/loyers-sync";
-import { cloturerBail, envoyerEnSignature, marquerSigne, retourBrouillon, supprimerBail } from "@/actions/baux";
+import { cloturerBail, envoyerEnSignature, joindreContratSigne, marquerSigne, retourBrouillon, supprimerBail, supprimerContratSigne } from "@/actions/baux";
+import { preparerEnvoiContratSigne } from "@/actions/envois";
+import { formatTaille } from "@/lib/storage";
+import { ContratSigneForm } from "@/components/baux/contrat-signe-form";
 import { Alerte, Badge, Button, ButtonLink, Card, CardHeader, Infos, Onglets, PageHeader, Stat, Stepper, Tableau, TableauPied, Td, Th } from "@/components/ui";
 import { Field, Input } from "@/components/form";
 import { IconeFichier } from "@/components/icones";
@@ -245,6 +248,33 @@ export default async function BailPage({ params, searchParams }: { params: Param
                   {b.statut === "TERMINE" && (
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600">
                       <span className="font-bold text-navy-900">Bail terminé le {formatDate(b.dateFinEffective ?? b.dateFin)}.</span> Les appels de loyer restent consultables dans l'onglet Loyers ; pensez à restituer le dépôt de garantie.
+                    </div>
+                  )}
+                </div>
+                <div className="border-t border-slate-100 px-5 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-navy-900">Exemplaire signé</h3>
+                      <p className="text-xs text-slate-500">Copie du contrat signé (PDF ou photo), consultable par le locataire dans son espace.</p>
+                    </div>
+                    {b.contratSigneChemin && (
+                      <div className="flex flex-wrap gap-2">
+                        <ButtonLink href={`/api/baux/${b.id}/contrat-signe`} target="_blank" taille="sm" variante="secondary">Voir</ButtonLink>
+                        <ButtonLink href={`/api/baux/${b.id}/contrat-signe?dl=1`} taille="sm" variante="secondary">Télécharger</ButtonLink>
+                        <ConfirmForm action={supprimerContratSigne} titre="Retirer l'exemplaire signé ?" message="Le fichier sera supprimé du stockage et ne sera plus visible par le locataire." libelleConfirmer="Retirer">
+                          <input type="hidden" name="id" value={b.id} />
+                          <Button type="submit" variante="danger" taille="sm">Retirer</Button>
+                        </ConfirmForm>
+                      </div>
+                    )}
+                  </div>
+                  {b.contratSigneChemin ? (
+                    <p className="mt-2 text-sm text-slate-600">
+                      {b.contratSigneNom}{b.contratSigneTaille ? ` · ${formatTaille(b.contratSigneTaille)}` : ""}{b.contratSigneLe ? ` · déposé le ${formatDate(b.contratSigneLe)}` : ""}
+                    </p>
+                  ) : (
+                    <div className="mt-3">
+                      <ContratSigneForm action={joindreContratSigne.bind(null, b.id)} preparer={preparerEnvoiContratSigne.bind(null, b.id)} />
                     </div>
                   )}
                 </div>

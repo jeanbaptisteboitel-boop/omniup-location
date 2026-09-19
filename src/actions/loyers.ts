@@ -16,6 +16,7 @@ import { envoyerEmail, mailConfigure } from "@/lib/mail";
 import { emailAvis, emailQuittance } from "@/lib/mail-modeles";
 import { entiteCouranteId } from "@/lib/entite";
 import { emailsLocataires } from "@/lib/locataires";
+import { exigerEcriture } from "@/lib/droits";
 
 /** Appel de loyer de l'entité de travail, sinon null. */
 async function appelDeLEntite(id: number): Promise<AppelComplet | null> {
@@ -36,6 +37,7 @@ function revalider(appel: AppelComplet) {
 // ---------------------------------------------------------------------------
 
 export async function genererAppelsMaintenant(): Promise<void> {
+  await exigerEcriture();
   const crees = await synchroniserAppelsLoyer();
   revalidatePath("/loyers");
   revalidatePath("/");
@@ -55,6 +57,7 @@ const schemaPaiement = z.object({
 });
 
 export async function enregistrerPaiement(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaPaiement, fd);
   if (!r.success) return echec(fd, r.errors);
   if (r.data.montant <= 0) return echec(fd, { montant: "Le montant doit être supérieur à zéro." });
@@ -85,6 +88,7 @@ export async function enregistrerPaiement(appelId: number, _prev: FormState, fd:
 }
 
 export async function supprimerPaiement(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const p = await prisma.paiement.findUnique({ where: { id }, include: { appel: { select: { bail: { select: { entiteId: true } } } } } });
   if (!p || p.appel.bail.entiteId !== (await entiteCouranteId())) redirect("/loyers");
@@ -130,6 +134,7 @@ async function envoyerQuittanceInterne(appel: AppelComplet, objet?: string, corp
 }
 
 export async function envoyerAvis(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const appel = await appelDeLEntite(appelId);
   if (!appel) return erreur(fd, "Appel de loyer introuvable.");
   try {
@@ -142,6 +147,7 @@ export async function envoyerAvis(appelId: number, _prev: FormState, fd: FormDat
 }
 
 export async function envoyerQuittance(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const appel = await appelDeLEntite(appelId);
   if (!appel) return erreur(fd, "Appel de loyer introuvable.");
   if (appel.paiements.length === 0) return erreur(fd, "Aucun paiement enregistré : enregistrez d'abord le paiement.");
@@ -155,6 +161,7 @@ export async function envoyerQuittance(appelId: number, _prev: FormState, fd: Fo
 }
 
 export async function marquerAvisEnvoye(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const appel = await appelDeLEntite(id);
   if (!appel) redirect("/loyers");
@@ -164,6 +171,7 @@ export async function marquerAvisEnvoye(fd: FormData): Promise<void> {
 }
 
 export async function marquerQuittanceEnvoyee(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const appel = await appelDeLEntite(id);
   if (!appel) redirect("/loyers");
@@ -174,6 +182,7 @@ export async function marquerQuittanceEnvoyee(fd: FormData): Promise<void> {
 
 /** Envoi groupé de tous les avis non encore envoyés (locataires avec email). */
 export async function envoyerAvisEnAttente(): Promise<void> {
+  await exigerEcriture();
   if (!mailConfigure()) redirect(avecMessage("/loyers", "L'envoi d'emails n'est pas configuré (voir Paramètres).", "erreur"));
   const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { entiteId: await entiteCouranteId(), locataires: { some: { email: { not: null } } } } }, include: includeAppel, orderBy: { periode: "asc" } });
   let envoyes = 0;

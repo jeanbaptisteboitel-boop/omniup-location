@@ -9,7 +9,7 @@ import { chargerCourrier } from "@/lib/pdf/donnees";
 import { mailConfigure } from "@/lib/mail";
 import { iaConfiguree } from "@/lib/ia-config";
 import { emailCourrier } from "@/lib/mail-modeles";
-import { envoyerCourrier, modifierCourrier, supprimerCourrier } from "@/actions/courriers";
+import { envoyerCourrier, marquerCourrierRemis, modifierCourrier, supprimerCourrier } from "@/actions/courriers";
 import { genererCourrier, genererEmail } from "@/actions/ia";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, PageHeader } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
@@ -53,6 +53,10 @@ export default async function CourrierPage({ params, searchParams }: { params: P
               <input type="hidden" name="id" value={c.id} />
               <Button type="submit" variante="danger">Supprimer</Button>
             </ConfirmForm>
+            <form action={marquerCourrierRemis}>
+              <input type="hidden" name="id" value={c.id} />
+              <Button type="submit" variante="secondary" title="Un courrier envoyé ou marqué remis est visible dans l'espace locataire">{c.dateEnvoi ? "Marquer non remis" : "Marquer comme remis"}</Button>
+            </form>
             <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf`} variante="secondary" target="_blank">Voir le PDF</ButtonLink>
             <ButtonLink href={`/api/courriers/${c.id}/courrier.pdf?dl=1`} variante="secondary">Télécharger</ButtonLink>
           </>

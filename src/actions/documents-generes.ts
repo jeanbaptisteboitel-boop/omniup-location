@@ -13,6 +13,7 @@ import { envoyerEmail } from "@/lib/mail";
 import { rediger } from "@/lib/ia";
 import { ficheBail } from "@/lib/ia-contexte";
 import { emailsLocataires, includeLocataires } from "@/lib/locataires";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaDocument = z.object({
   titre: zTexte(200),
@@ -32,6 +33,7 @@ function revalider(d: { id: number; bailId: number | null }) {
 }
 
 export async function modifierDocumentGenere(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaDocument, fd);
   if (!r.success) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -45,6 +47,7 @@ export async function modifierDocumentGenere(id: number, _prev: FormState, fd: F
 }
 
 export async function supprimerDocumentGenere(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const d = await documentDeLEntite(id);
   if (!d) redirect("/documents");
@@ -53,7 +56,19 @@ export async function supprimerDocumentGenere(fd: FormData): Promise<void> {
   redirect(avecMessage(d.bailId ? `/baux/${d.bailId}` : "/documents", "Document supprimé."));
 }
 
+/** Document remis en main propre ou posté : il devient visible dans l'espace locataire (s'il est rattaché à un bail). */
+export async function marquerDocumentRemis(fd: FormData): Promise<void> {
+  await exigerEcriture();
+  const id = Number(fd.get("id"));
+  const d = await documentDeLEntite(id);
+  if (!d) redirect("/documents");
+  await prisma.documentGenere.update({ where: { id }, data: { dateEnvoi: d.dateEnvoi ? null : new Date() } });
+  revalider(d);
+  redirect(avecMessage(`/documents/${id}`, d.dateEnvoi ? "Document marqué comme non remis." : `Document marqué comme remis${d.bailId ? " : il est visible dans l'espace locataire" : ""}.`));
+}
+
 export async function envoyerDocumentGenere(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const d = await documentDeLEntite(id);
   if (!d) return erreur(fd, "Document introuvable.");
   const email = d.bail ? emailsLocataires(d.bail.locataires) : [];
@@ -77,6 +92,7 @@ export async function envoyerDocumentGenere(id: number, _prev: FormState, fd: Fo
 
 /** Adapte ou complète le document avec l'assistant de rédaction, selon les instructions données. */
 export async function adapterDocumentIA(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const d = await documentDeLEntite(id);
   if (!d) return erreur(fd, "Document introuvable.");
   const instructions = String(fd.get("instructions") ?? "").trim().slice(0, 2000);

@@ -38,8 +38,51 @@ model Entite {
   depenses   Depense[]
   emprunts   Emprunt[]
   documents  DocumentGenere[]
+  acces      AccesEntite[]
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Utilisateurs de l'application (gestionnaires) et droits par entité
+// ---------------------------------------------------------------------------
+
+/// Rôle d'un utilisateur sur une entité : administrateur (gère l'entité et ses utilisateurs),
+/// gestionnaire (toutes les opérations courantes) ou lecture seule.
+enum RoleEntite {
+  ADMINISTRATEUR
+  GESTIONNAIRE
+  LECTURE
+}
+
+/// Compte de connexion (email et mot de passe). Le super-administrateur (cabinet) accède à toutes les entités.
+model Utilisateur {
+  id                Int           @id @default(autoincrement())
+  email             String        @unique
+  nom               String
+  motDePasse        String?
+  superAdmin        Boolean       @default(false)
+  actif             Boolean       @default(true)
+  jetonInvitation   String?       @unique
+  jetonExpireLe     DateTime?
+  derniereConnexion DateTime?
+  acces             AccesEntite[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+/// Droit d'un utilisateur sur une entité.
+model AccesEntite {
+  id            Int         @id @default(autoincrement())
+  utilisateurId Int
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  entiteId      Int
+  entite        Entite      @relation(fields: [entiteId], references: [id], onDelete: Cascade)
+  role          RoleEntite  @default(GESTIONNAIRE)
+  createdAt     DateTime    @default(now())
+
+  @@unique([utilisateurId, entiteId])
+  @@index([entiteId])
 }
 
 enum CategorieModele {
@@ -124,6 +167,11 @@ model Bailleur {
   notes             String?
   immeubles         Immeuble[]
   lots              Lot[]
+  /// Espace propriétaire : jeton d'accès personnel (lien), création, envoi par email et dernière visite.
+  accesJeton        String?      @unique
+  accesCreeLe       DateTime?
+  accesEnvoyeLe     DateTime?
+  accesDernierLe    DateTime?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -210,6 +258,11 @@ model Locataire {
   documents         Document[]
   /// Baux dont la personne est titulaire (seule ou avec d'autres locataires : couple, colocation).
   baux              Bail[]     @relation("BailLocataires")
+  /// Espace locataire : jeton d'accès personnel (lien), création, envoi par email et dernière visite.
+  accesJeton        String?    @unique
+  accesCreeLe       DateTime?
+  accesEnvoyeLe     DateTime?
+  accesDernierLe    DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -258,36 +311,42 @@ enum StatutBail {
 
 /// Bail : lien entre un lot et un ou plusieurs locataires (titulaires solidaires : couple, colocation).
 model Bail {
-  id               Int              @id @default(autoincrement())
-  entiteId         Int
-  entite           Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
-  lotId            Int
-  lot              Lot              @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  locataires       Locataire[]      @relation("BailLocataires")
-  type             TypeBail
-  statut           StatutBail       @default(BROUILLON)
-  dateDebut        DateTime
-  dateFin          DateTime
-  loyerHC          Float
-  charges          Float            @default(0)
-  chargesForfait   Boolean          @default(false)
-  depotGarantie    Float            @default(0)
-  jourEcheance     Int              @default(1)
-  motifMobilite    String?
-  clauseRevision   Boolean          @default(true)
-  irlTrimestre     String?
-  irlValeur        Float?
-  texteContrat     String?
-  signatureRef     String?
-  dateSignature    DateTime?
-  dateFinEffective DateTime?
-  notes            String?
-  appels           AppelLoyer[]
-  revisions        RevisionLoyer[]
-  courriers        Courrier[]
-  documents        DocumentGenere[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                 Int              @id @default(autoincrement())
+  entiteId           Int
+  entite             Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  lotId              Int
+  lot                Lot              @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  locataires         Locataire[]      @relation("BailLocataires")
+  type               TypeBail
+  statut             StatutBail       @default(BROUILLON)
+  dateDebut          DateTime
+  dateFin            DateTime
+  loyerHC            Float
+  charges            Float            @default(0)
+  chargesForfait     Boolean          @default(false)
+  depotGarantie      Float            @default(0)
+  jourEcheance       Int              @default(1)
+  motifMobilite      String?
+  clauseRevision     Boolean          @default(true)
+  irlTrimestre       String?
+  irlValeur          Float?
+  texteContrat       String?
+  signatureRef       String?
+  dateSignature      DateTime?
+  dateFinEffective   DateTime?
+  /// Exemplaire signé du contrat (PDF ou image déposé par le gestionnaire), consultable dans l'espace locataire.
+  contratSigneChemin String?
+  contratSigneNom    String?
+  contratSigneMime   String?
+  contratSigneTaille Int?
+  contratSigneLe     DateTime?
+  notes              String?
+  appels             AppelLoyer[]
+  revisions          RevisionLoyer[]
+  courriers          Courrier[]
+  documents          DocumentGenere[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   @@index([entiteId])
 }

@@ -31,6 +31,12 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Entités** : par défaut une seule entité ; en activant la gestion multi-entités (Paramètres), une entreprise de gérance ou un cabinet gère plusieurs personnes et sociétés, chacune avec ses bailleurs, immeubles, lots, locataires, baux, dépenses, emprunts et documents, l'entité de travail se choisissant dans la barre latérale.
 
+**Espace locataire** : chaque locataire reçoit un lien d'accès personnel (créé depuis sa fiche, envoyé par email ou copié) qui ouvre `/espace` : détail du bail, exemplaire signé du contrat déposé par le gestionnaire, avis d'échéance et quittances en PDF, courriers et documents envoyés ou marqués remis, solde dû et échéances en retard. Le lien reste valable jusqu'à sa révocation depuis la fiche du locataire ; un lien perdu se redemande par email depuis la page de connexion de l'espace.
+
+**Espace propriétaire** : chaque bailleur (propriétaire dont vous gérez les biens) dispose de même d'un lien d'accès personnel, créé depuis sa fiche, qui ouvre `/proprietaire` : ses lots (loués ou vacants), le bail en cours et les baux passés de chaque lot avec le contrat et l'exemplaire signé, les appels de loyer avec avis et quittances, les dépenses avec justificatifs, les loyers encaissés et le reste dû, et la synthèse annuelle recettes / dépenses limitée à ses biens.
+
+**Comptes utilisateurs et rôles** : dès qu'un secret de session (`APP_SECRET`) est défini, l'application demande une connexion par email et mot de passe. Le premier compte, créé à la première ouverture, est **super-administrateur** (le cabinet) : il voit toutes les entités et gère tous les comptes. Chaque autre utilisateur reçoit un rôle par entité : **administrateur** (toutes les opérations, les paramètres de l'entité et ses utilisateurs), **gestionnaire** (opérations courantes) ou **lecture seule** (consultation, aucune modification ni envoi). Les comptes se créent par invitation par email (l'utilisateur choisit son mot de passe, lien valable 7 jours) ou avec un mot de passe initial ; ils se désactivent sans perdre leurs accès ; chacun change son mot de passe depuis « Mon compte » ou par « Mot de passe oublié ». Les formulaires publics (connexion, mot de passe oublié, lien d'accès perdu des espaces locataire et propriétaire) peuvent être protégés des robots par Cloudflare Turnstile.
+
 **Indices INSEE** : les indices IRL, ILC, ILAT, ICC et BT01 sont lus chaque jour sur le service de données de l'INSEE (accès libre, sans clé), historisés en base depuis 2000 avec leur statut (provisoire ou définitif) et le journal des révisions, consultables (tableau, historique, courbe) et exposés par une API interne ; d'autres séries s'ajoutent sans redéploiement, leur idbank étant vérifié auprès de l'INSEE. Détails : `src/lib/insee/README.md`.
 
 **Calculatrices** : pourcentages de loyer et taux d'effort, révision de loyer par indice (IRL annuel, ILC/ILAT annuel ou triennal, plafond, derniers indices publiés par l'INSEE récupérés en un clic), rentabilité brute et nette avec cash-flow, frais de notaire, capacité d'emprunt, mensualité et coût d'un prêt, prêt in fine.
@@ -57,7 +63,9 @@ Sans variables `SCW_*`, les fichiers importés sont écrits dans `storage/` ; sa
 | `DATABASE_URL`, `DIRECT_URL` | PostgreSQL : chaîne « pooled » pour l'application et chaîne directe pour les migrations (Neon fournit les deux). |
 | `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`, `SCW_ENDPOINT` | Stockage objet Scaleway (compatible S3) pour les fichiers importés. Obligatoire sur Vercel. |
 | `STORAGE_DIR` | Dossier local utilisé quand le stockage objet n'est pas configuré. |
-| `APP_PASSWORD`, `APP_SECRET` | Mot de passe d'accès à l'application et secret de signature de la session. |
+| `APP_SECRET` | Secret aléatoire (32 caractères ou plus) qui signe le cookie de session et active les comptes utilisateurs : la première ouverture de `/connexion` crée le compte super-administrateur. |
+| `APP_PASSWORD` | Facultatif : mot de passe principal. Demandé en plus pour créer le premier compte et utilisable en secours (`/connexion?mode=principal`) ; seul, il protège l'application sans comptes, comme auparavant. |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Facultatif : clés d'un widget [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) (protection anti-robots des formulaires de connexion et de demande de lien). |
 | `RESEND_API_KEY`, `MAIL_FROM` | Envoi des avis, quittances, contrats et courriers par email via [Resend](https://resend.com) (clé API + adresse d'expédition sur un domaine vérifié). Sans configuration, les PDF restent téléchargeables. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | Alternative à Resend : serveur SMTP classique, utilisé seulement si `RESEND_API_KEY` est vide (l'expéditeur reste `MAIL_FROM`). |
 | `AVIS_JOURS_AVANCE` | Nombre de jours avant le début du mois pour émettre l'avis d'échéance (10 par défaut). |
@@ -76,10 +84,13 @@ La page **Paramètres** de l'application affiche l'état de chaque configuration
 
 1. **Neon** : créez un projet PostgreSQL et récupérez les deux chaînes de connexion (pooled → `DATABASE_URL`, directe → `DIRECT_URL`).
 2. **Scaleway Object Storage** : créez un bucket privé (région `fr-par` par exemple) et une clé API ; renseignez `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`. Autorisez l'envoi direct depuis le navigateur : une fois l'application déployée avec `APP_URL` renseignée, cliquez sur « Autoriser l'envoi direct » dans Paramètres (carte Stockage des fichiers), ou lancez `APP_URL=https://votre-app.vercel.app node scripts/configurer-cors.mjs`. Sans cette règle CORS, l'import d'un document échoue avec « Failed to fetch ».
-3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_PASSWORD`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie chaque jour l'émission des appels de loyer à 6 h UTC via `/api/cron/loyers` et la synchronisation des indices INSEE à 7 h 30 UTC (9 h 30 à Paris en heure d'été) via `/api/cron/indices` (Vercel transmet `CRON_SECRET` automatiquement).
+3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_SECRET`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie chaque jour l'émission des appels de loyer à 6 h UTC via `/api/cron/loyers` et la synchronisation des indices INSEE à 7 h 30 UTC (9 h 30 à Paris en heure d'été) via `/api/cron/indices` (Vercel transmet `CRON_SECRET` automatiquement).
 4. Les fonctions longues (rédaction IA, OCR, envois d'emails) déclarent `maxDuration = 300` ; si votre projet Vercel n'utilise pas Fluid compute, ramenez cette valeur à 60 dans les pages concernées.
+5. **Première connexion** : ouvrez `/connexion` et créez le compte super-administrateur (nom, email, mot de passe ; le mot de passe principal est demandé en plus si `APP_PASSWORD` est défini). Créez ensuite les autres utilisateurs depuis la page Utilisateurs, par invitation par email ou avec un mot de passe initial. Pour protéger les formulaires publics des robots, créez un widget [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) pour le domaine de l'application et renseignez `TURNSTILE_SITE_KEY` et `TURNSTILE_SECRET_KEY`.
 
 Limites Vercel à connaître : une requête ne peut pas dépasser 4,5 Mo, d'où l'envoi des documents directement vers Scaleway depuis le navigateur ; l'import d'un échéancier PDF par OCR est limité à 4 Mo (utilisez le CSV ou l'Excel de la banque au-delà).
+
+Génération des PDF sur Vercel : les contrats, avis, quittances, courriers et documents sont produits par pdfkit, déclaré paquet externe dans `next.config.ts`. Ses polices standard, chargées à l'exécution, sont embarquées explicitement (`outputFileTracingIncludes`) : sans cette ligne, chaque téléchargement de PDF échoue en production avec « Cannot find module '#standard-fonts/Helvetica' » (un test unitaire vérifie cette configuration, et les routes PDF journalisent toute erreur de génération dans les logs Vercel).
 
 ## Émission automatique des appels de loyer
 
@@ -93,7 +104,7 @@ Aujourd'hui, le contrat est téléchargé en PDF depuis la fiche du bail, signé
 
 ```bash
 npm run typecheck   # vérification TypeScript
-npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants, indices INSEE)
+npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants, indices INSEE, sessions et comptes, espaces locataire et propriétaire, déploiement des PDF)
 node scripts/verifier-idbanks.mjs   # contrôle des idbanks INSEE par appel réel (libellé officiel, dernière valeur)
 npm run db:studio   # exploration de la base de données
 ```

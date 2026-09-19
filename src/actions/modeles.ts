@@ -11,6 +11,7 @@ import { entiteCouranteId } from "@/lib/entite";
 import { remplirModele } from "@/lib/modeles";
 import { modeleDefautParCode } from "@/lib/modeles-defaut";
 import { contexteBase, contexteDepuisBail, includeBailPourModele } from "@/lib/modeles-data";
+import { exigerEcriture } from "@/lib/droits";
 
 const CATEGORIES = ["BAIL", "AVENANT", "RENOUVELLEMENT", "RESILIATION", "CAUTION", "CONVENTION", "AUTRE"] as const;
 
@@ -22,6 +23,7 @@ const schemaModele = z.object({
 });
 
 export async function creerModele(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaModele, fd);
   if (!r.success) return echec(fd, r.errors);
   const m = await prisma.modeleDocument.create({ data: { ...r.data, parDefaut: false } });
@@ -30,6 +32,7 @@ export async function creerModele(_prev: FormState, fd: FormData): Promise<FormS
 }
 
 export async function modifierModele(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaModele, fd);
   if (!r.success) return echec(fd, r.errors);
   await prisma.modeleDocument.update({ where: { id }, data: r.data });
@@ -39,6 +42,7 @@ export async function modifierModele(id: number, _prev: FormState, fd: FormData)
 }
 
 export async function dupliquerModele(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const m = await prisma.modeleDocument.findUnique({ where: { id } });
   if (!m) redirect("/modeles");
@@ -48,6 +52,7 @@ export async function dupliquerModele(fd: FormData): Promise<void> {
 }
 
 export async function reinitialiserModele(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const m = await prisma.modeleDocument.findUnique({ where: { id } });
   if (!m) redirect("/modeles");
@@ -59,6 +64,7 @@ export async function reinitialiserModele(fd: FormData): Promise<void> {
 }
 
 export async function supprimerModele(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const m = await prisma.modeleDocument.findUnique({ where: { id } });
   if (!m) redirect("/modeles");
@@ -72,6 +78,7 @@ const schemaGeneration = z.object({ bailId: zIdOpt, titre: zTexteOpt(200) });
 
 /** Génère un document à partir d'un modèle, rempli avec les données du bail choisi (facultatif). */
 export async function genererDocument(modeleId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaGeneration, fd);
   if (!r.success) return echec(fd, r.errors);
   const modele = await prisma.modeleDocument.findUnique({ where: { id: modeleId } });
@@ -94,6 +101,7 @@ export async function genererDocument(modeleId: number, _prev: FormState, fd: Fo
 
 /** Remplit le texte du contrat d'un bail à partir d'un modèle de la catégorie « Baux ». */
 export async function genererContratDepuisModele(bailId: number, fd: FormData): Promise<void> {
+  await exigerEcriture();
   const modeleId = Number(fd.get("modeleId"));
   const entiteId = await entiteCouranteId();
   const [bail, modele] = await Promise.all([

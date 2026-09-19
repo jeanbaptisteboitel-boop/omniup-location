@@ -8,8 +8,10 @@ import { avecMessage } from "@/lib/erreurs";
 import { envoyerEmail, libelleFournisseurMail, mailConfigure } from "@/lib/mail";
 import { stockageObjetConfigure } from "@/lib/storage";
 import { autoriserOrigines } from "@/lib/stockage-s3";
+import { exigerAdministration } from "@/lib/droits";
 
 export async function envoyerEmailTest(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerAdministration();
   const a = String(fd.get("email") ?? "").trim();
   if (!a) return erreur(fd, "Indiquez une adresse email.");
   if (!mailConfigure()) return erreur(fd, "Envoi d'emails non configuré (RESEND_API_KEY ou SMTP_HOST).");
@@ -37,6 +39,7 @@ async function originesApplication(): Promise<string[]> {
 
 /** Applique au bucket Scaleway la règle CORS qui autorise l'envoi direct des fichiers depuis le navigateur. */
 export async function autoriserEnvoiDirect(): Promise<void> {
+  await exigerAdministration();
   if (!stockageObjetConfigure()) redirect(avecMessage("/parametres", "Le stockage objet n'est pas configuré (SCW_ACCESS_KEY, SCW_SECRET_KEY, SCW_BUCKET).", "erreur"));
   const origines = await originesApplication();
   if (!origines.length) redirect(avecMessage("/parametres", "Impossible de déterminer l'adresse de l'application : renseignez APP_URL (ex. https://mon-app.vercel.app).", "erreur"));

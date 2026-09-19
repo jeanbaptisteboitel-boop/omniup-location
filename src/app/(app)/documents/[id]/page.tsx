@@ -7,7 +7,7 @@ import { formatDate, formatDateHeure } from "@/lib/dates";
 import { entiteCouranteId } from "@/lib/entite";
 import { mailConfigure } from "@/lib/mail";
 import { iaConfiguree } from "@/lib/ia-config";
-import { adapterDocumentIA, envoyerDocumentGenere, modifierDocumentGenere, supprimerDocumentGenere } from "@/actions/documents-generes";
+import { adapterDocumentIA, envoyerDocumentGenere, marquerDocumentRemis, modifierDocumentGenere, supprimerDocumentGenere } from "@/actions/documents-generes";
 import { genererEmail } from "@/actions/ia";
 import { DocumentEditeur } from "@/components/modeles/document-editeur";
 import { BoutonEnvoi } from "@/components/modeles/bouton-envoi";
@@ -45,6 +45,10 @@ export default async function DocumentPage({ params, searchParams }: { params: P
               <input type="hidden" name="id" value={d.id} />
               <Button type="submit" variante="danger">Supprimer</Button>
             </ConfirmForm>
+            <form action={marquerDocumentRemis}>
+              <input type="hidden" name="id" value={d.id} />
+              <Button type="submit" variante="secondary" title="Un document envoyé ou marqué remis est visible dans l'espace locataire">{d.dateEnvoi ? "Marquer non remis" : "Marquer comme remis"}</Button>
+            </form>
             <ButtonLink href={`/api/documents-generes/${d.id}/document.pdf`} variante="secondary" target="_blank">
               <IconeApercu taille={16} />
               Voir le PDF

@@ -15,5 +15,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|connexion|api/cron/).*)"],
+  // Les espaces locataire (/espace) et propriétaire (/proprietaire) ont leur propre authentification par jeton d'accès.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|connexion|espace|proprietaire|api/cron/|api/espace/|api/proprietaire/).*)"],
 };

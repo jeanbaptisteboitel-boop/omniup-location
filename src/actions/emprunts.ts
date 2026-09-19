@@ -15,6 +15,7 @@ import { mistralConfigure } from "@/lib/mistral-config";
 import { toISODate } from "@/lib/dates";
 import { arrondir2 } from "@/lib/montants";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaEmprunt = z.object({
   libelle: zTexte(200),
@@ -54,6 +55,7 @@ async function verifierAffectation(entiteId: number, a: { lotId: number | null; 
 }
 
 export async function creerEmprunt(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = lire(fd);
   if (!r.ok) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -64,6 +66,7 @@ export async function creerEmprunt(_prev: FormState, fd: FormData): Promise<Form
 }
 
 export async function modifierEmprunt(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = lire(fd);
   if (!r.ok) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -76,6 +79,7 @@ export async function modifierEmprunt(id: number, _prev: FormState, fd: FormData
 }
 
 export async function supprimerEmprunt(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
@@ -95,6 +99,7 @@ async function remplacerEcheances(empruntId: number, lignes: LigneEcheance[], re
 
 /** Échéancier théorique calculé à partir des caractéristiques du prêt. */
 export async function genererEcheancierEmprunt(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
@@ -108,6 +113,7 @@ export async function genererEcheancierEmprunt(fd: FormData): Promise<void> {
 }
 
 export async function supprimerEcheancier(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const e = await prisma.emprunt.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!e) redirect("/emprunts");
@@ -135,6 +141,7 @@ function serialiser(c: Cellule): string | number | null {
 }
 
 export async function analyserFichierEcheancier(empruntId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const fichier = fd.get("fichier");
   if (!(fichier instanceof File) || fichier.size === 0) return echec(fd, { fichier: "Sélectionnez un fichier." });
   if (fichier.size > 4 * 1024 * 1024) return echec(fd, { fichier: "Le fichier dépasse 4 Mo : exportez l'échéancier en CSV ou Excel, ou découpez le PDF." });
@@ -168,6 +175,7 @@ export async function analyserFichierEcheancier(empruntId: number, _prev: FormSt
 }
 
 export async function importerEcheancier(empruntId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const e = await prisma.emprunt.findFirst({ where: { id: empruntId, entiteId: await entiteCouranteId() } });
   if (!e) return erreur(fd, "Emprunt introuvable.");
   let apercu: ApercuImport;

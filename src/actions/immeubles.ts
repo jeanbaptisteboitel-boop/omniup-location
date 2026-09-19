@@ -8,6 +8,7 @@ import { echec, erreur, type FormState } from "@/lib/forms";
 import { avecMessage, estContrainteReference } from "@/lib/erreurs";
 import { analyser, zCodePostal, zIdOpt, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaImmeuble = z.object({
   nom: zTexte(200),
@@ -26,6 +27,7 @@ async function verifierBailleur(entiteId: number, bailleurId: number | null): Pr
 }
 
 export async function creerImmeuble(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaImmeuble, fd);
   if (!r.success) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -37,6 +39,7 @@ export async function creerImmeuble(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function modifierImmeuble(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = analyser(schemaImmeuble, fd);
   if (!r.success) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -51,6 +54,7 @@ export async function modifierImmeuble(id: number, _prev: FormState, fd: FormDat
 }
 
 export async function supprimerImmeuble(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const immeuble = await prisma.immeuble.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { _count: { select: { depenses: true, emprunts: true } } } });
   if (!immeuble) redirect("/immeubles");

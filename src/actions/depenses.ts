@@ -11,6 +11,7 @@ import { confirmerEnvoiDirect, enregistrerFichier, supprimerFichier, typeMimeDe,
 import { messageErreur } from "@/lib/forms";
 import { analyser, zBool, zDate, zEnum, zMontant, zTexte, zTexteOpt } from "@/lib/validation";
 import { entiteCouranteId } from "@/lib/entite";
+import { exigerEcriture } from "@/lib/droits";
 
 const schemaDepense = z.object({
   date: zDate,
@@ -76,6 +77,7 @@ async function verifierAffectation(entiteId: number, a: { lotId: number | null; 
 }
 
 export async function creerDepense(_prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = await lireFormulaire(fd);
   if (!r.ok) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -95,6 +97,7 @@ export async function creerDepense(_prev: FormState, fd: FormData): Promise<Form
 }
 
 export async function modifierDepense(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const r = await lireFormulaire(fd);
   if (!r.ok) return echec(fd, r.errors);
   const entiteId = await entiteCouranteId();
@@ -126,6 +129,7 @@ export async function modifierDepense(id: number, _prev: FormState, fd: FormData
 }
 
 export async function supprimerDepense(fd: FormData): Promise<void> {
+  await exigerEcriture();
   const id = Number(fd.get("id"));
   const d = await prisma.depense.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!d) redirect("/depenses");

@@ -9,6 +9,7 @@ import { formatDateLongue, formatPeriode, formatDate, aujourdhui } from "@/lib/d
 import { formatEuros } from "@/lib/montants";
 import { variationIRL } from "@/lib/irl";
 import { etatAppel } from "@/lib/loyers";
+import { exigerEcriture } from "@/lib/droits";
 
 function instructionsDe(fd: FormData): string | null {
   const s = String(fd.get("instructions") ?? "").trim();
@@ -20,6 +21,7 @@ function resultat(texte: string): FormState {
 }
 
 export async function genererContrat(bailId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   try {
     const { fiche, bail } = await ficheBail(bailId);
     const texte = await rediger({ prompt: promptContratBail(fiche, bail.type, instructionsDe(fd)), maxTokens: 24000 });
@@ -30,6 +32,7 @@ export async function genererContrat(bailId: number, _prev: FormState, fd: FormD
 }
 
 export async function genererCourrier(bailId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const type = String(fd.get("type") ?? "AUTRE");
   const instructions = instructionsDe(fd);
   try {
@@ -77,6 +80,7 @@ export async function genererCourrier(bailId: number, _prev: FormState, fd: Form
 }
 
 export async function genererEmail(bailId: number, _prev: FormState, fd: FormData): Promise<FormState> {
+  await exigerEcriture();
   const objet = String(fd.get("objet") ?? "").trim() || "Votre location";
   const contexte = String(fd.get("contexte") ?? "").trim().slice(0, 4000);
   try {
