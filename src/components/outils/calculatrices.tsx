@@ -516,7 +516,7 @@ export function Calculatrices({ initial = "pourcentages" }: { initial?: string }
   const Composant = ONGLETS.find((o) => o.cle === actif)!.composant;
   return (
     <div className="space-y-6">
-      <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-slate-200">
+      <div role="tablist" className="flex gap-1 overflow-x-auto max-sm:flex-wrap max-sm:gap-0 border-b border-slate-200">
         {ONGLETS.map((o) => (
           <button
             key={o.cle}
@@ -527,7 +527,7 @@ export function Calculatrices({ initial = "pourcentages" }: { initial?: string }
               setActif(o.cle);
               window.history.replaceState(null, "", `/outils?onglet=${o.cle}`);
             }}
-            className={`flex h-11 shrink-0 cursor-pointer items-center whitespace-nowrap px-3.5 text-sm focus:outline-none focus-visible:outline-2 focus-visible:outline-brand-cyan ${actif === o.cle ? "font-bold text-navy-900 shadow-[inset_0_-2px_0_#172c52]" : "font-medium text-slate-500 hover:text-navy-900"}`}
+            className={`flex h-11 shrink-0 cursor-pointer items-center whitespace-nowrap px-3.5 text-sm max-sm:h-10 max-sm:px-2.5 focus:outline-none focus-visible:outline-2 focus-visible:outline-brand-cyan ${actif === o.cle ? "font-bold text-navy-900 shadow-[inset_0_-2px_0_#172c52]" : "font-medium text-slate-500 hover:text-navy-900"}`}
           >
             {o.libelle}
           </button>

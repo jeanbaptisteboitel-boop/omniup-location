@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { TableauResponsive } from "./tableau-responsive";
 
 /* ------------------------------------------------------------------ */
 /* Boutons                                                             */
@@ -186,11 +187,12 @@ export function Infos({ items, colonnes = 2, className = "" }: { items: { label:
   );
 }
 
+/** Tableau : défilement horizontal sur écran large ; sur téléphone, chaque ligne devient une carte (voir TableauResponsive). */
 export function Tableau({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <TableauResponsive className={className}>
       <table className="w-full min-w-full text-sm">{children}</table>
-    </div>
+    </TableauResponsive>
   );
 }
 
@@ -282,7 +284,7 @@ export type OngletItem = { href: string; libelle: string; actif?: boolean };
 /** Onglets soulignés (fiche bail, calculatrices) : liens vers des pages ou des paramètres d'URL. */
 export function Onglets({ items, className = "" }: { items: OngletItem[]; className?: string }) {
   return (
-    <div role="tablist" className={`flex gap-1 overflow-x-auto border-b border-slate-100 px-3 ${className}`}>
+    <div role="tablist" className={`flex gap-1 overflow-x-auto border-b border-slate-100 px-3 max-sm:flex-wrap max-sm:gap-0 ${className}`}>
       {items.map((it) => (
         <Link
           key={it.href + it.libelle}
@@ -290,7 +292,7 @@ export function Onglets({ items, className = "" }: { items: OngletItem[]; classN
           role="tab"
           aria-selected={!!it.actif}
           scroll={false}
-          className={`flex h-11 shrink-0 items-center whitespace-nowrap px-3.5 text-sm ${it.actif ? "font-bold text-navy-900 shadow-[inset_0_-2px_0_#172c52]" : "font-medium text-slate-500 hover:text-navy-900"}`}
+          className={`flex h-11 shrink-0 items-center whitespace-nowrap px-3.5 text-sm max-sm:h-10 max-sm:px-2.5 ${it.actif ? "font-bold text-navy-900 shadow-[inset_0_-2px_0_#172c52]" : "font-medium text-slate-500 hover:text-navy-900"}`}
         >
           {it.libelle}
         </Link>

@@ -59,3 +59,73 @@ details > summary {
 details > summary::-webkit-details-marker {
   display: none;
 }
+
+/* Tableaux sur téléphone (< 640 px) : chaque ligne devient une carte, le libellé de colonne précède la valeur.
+   Règles hors @layer : elles priment sur les classes utilitaires des cellules (padding, alignement). */
+@media (max-width: 639px) {
+  .tableau-cartes > table > thead {
+    display: none;
+  }
+  .tableau-cartes > table,
+  .tableau-cartes > table > tbody,
+  .tableau-cartes > table > tfoot,
+  .tableau-cartes > table > tbody > tr,
+  .tableau-cartes > table > tfoot > tr {
+    display: block;
+    width: 100%;
+  }
+  .tableau-cartes > table > tbody > tr,
+  .tableau-cartes > table > tfoot > tr {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .tableau-cartes > table > tbody > tr:last-child {
+    border-bottom: 0;
+  }
+  .tableau-cartes > table > tfoot > tr {
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .tableau-cartes > table > tbody > tr > td,
+  .tableau-cartes > table > tbody > tr > th,
+  .tableau-cartes > table > tfoot > tr > td,
+  .tableau-cartes > table > tfoot > tr > th {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0.2rem 0.75rem;
+    min-width: 0;
+    padding: 0.2rem 0;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .tableau-cartes > table > tbody > tr > :empty,
+  .tableau-cartes > table > tfoot > tr > :empty {
+    display: none;
+  }
+  .tableau-cartes > table > tbody > tr > [data-label]::before,
+  .tableau-cartes > table > tfoot > tr > [data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    margin-right: auto;
+    max-width: 45%;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    text-align: left;
+  }
+  /* Première cellule : titre de la carte, sans libellé */
+  .tableau-cartes > table > tbody > tr > :first-child {
+    justify-content: flex-start;
+    padding-bottom: 0.4rem;
+    font-size: 15px;
+    text-align: left;
+  }
+  .tableau-cartes > table > tbody > tr > :first-child::before {
+    content: none;
+  }
+}
