@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { entierParam, texteParam, type SearchParams } from "@/lib/params";
-import { TYPES_LOT, nomComplet } from "@/lib/libelles";
+import { TYPES_LOT } from "@/lib/libelles";
 import { formatEuros } from "@/lib/montants";
 import { formatSurface } from "@/components/patrimoine/surface";
 import { Badge, ButtonLink, Card, EmptyState, Filtres, PageHeader, Tableau, TableauPied, Td, Th } from "@/components/ui";
@@ -9,6 +9,7 @@ import { Input, Select } from "@/components/form";
 import { FiltresForm } from "@/components/filtres-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Lots" };
 
@@ -26,7 +27,7 @@ export default async function LotsPage({ searchParams }: { searchParams: SearchP
     prisma.lot.findMany({
       where: { entiteId },
       orderBy: [{ ville: "asc" }, { nom: "asc" }],
-      include: { immeuble: true, baux: { where: { statut: "SIGNE" }, include: { locataire: true }, orderBy: { dateDebut: "desc" }, take: 1 } },
+      include: { immeuble: true, baux: { where: { statut: "SIGNE" }, include: { locataires: includeLocataires }, orderBy: { dateDebut: "desc" }, take: 1 } },
     }),
     prisma.immeuble.findMany({ where: { entiteId }, orderBy: { nom: "asc" }, select: { id: true, nom: true } }),
   ]);
@@ -40,7 +41,7 @@ export default async function LotsPage({ searchParams }: { searchParams: SearchP
     if (statut === "LOUE" && !loue) return false;
     if (statut === "VACANT" && loue) return false;
     if (recherche) {
-      const champs = [l.nom, l.adresse, l.codePostal, l.ville, l.immeuble?.nom, l.baux[0] ? nomComplet(l.baux[0].locataire) : null];
+      const champs = [l.nom, l.adresse, l.codePostal, l.ville, l.immeuble?.nom, l.baux[0] ? nomsLocataires(l.baux[0].locataires) : null];
       return champs.some((v) => v && normaliser(v).includes(recherche));
     }
     return true;
@@ -125,7 +126,7 @@ export default async function LotsPage({ searchParams }: { searchParams: SearchP
                         <Td className="text-slate-600">{TYPES_LOT[l.type]}</Td>
                         <Td droite className="text-slate-600">{formatSurface(l.surface) ?? "—"}</Td>
                         <Td droite className="font-semibold">{loyerCC === null ? <span className="font-normal text-slate-400">—</span> : bail ? formatEuros(loyerCC) : <span className="font-normal text-slate-500">{formatEuros(loyerCC)}</span>}</Td>
-                        <Td className="text-slate-600">{bail ? nomComplet(bail.locataire) : <span className="text-slate-400">—</span>}</Td>
+                        <Td className="text-slate-600">{bail ? nomsLocataires(bail.locataires) : <span className="text-slate-400">—</span>}</Td>
                         <Td>{bail ? <Badge ton="vert">Loué</Badge> : <Badge ton="orange">Vacant</Badge>}</Td>
                       </tr>
                     );

@@ -1,5 +1,5 @@
 import "server-only";
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetBucketCorsCommand, GetObjectCommand, HeadObjectCommand, PutBucketCorsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /** Stockage objet compatible S3 (Scaleway Object Storage en production). */
@@ -63,6 +63,29 @@ export async function urlLecture(chemin: string, nomFichier: string, mimeType: s
   const nomAscii = nomFichier.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   const disposition = `${telecharger ? "attachment" : "inline"}; filename="${nomAscii}"; filename*=UTF-8''${encodeURIComponent(nomFichier)}`;
   return getSignedUrl(clientS3(), new GetObjectCommand({ Bucket: bucket(), Key: chemin, ResponseContentDisposition: disposition, ResponseContentType: mimeType }), { expiresIn: 300 });
+}
+
+/** Origines (sites) autorisées à envoyer directement des fichiers dans le bucket (règle CORS) ; vide si aucune règle. */
+export async function originesAutorisees(): Promise<string[]> {
+  try {
+    const r = await clientS3().send(new GetBucketCorsCommand({ Bucket: bucket() }));
+    return Array.from(new Set((r.CORSRules ?? []).flatMap((regle) => (regle.AllowedMethods?.includes("PUT") ? (regle.AllowedOrigins ?? []) : []))));
+  } catch (e) {
+    if (e instanceof Error && /NoSuchCORSConfiguration/i.test(e.name)) return [];
+    throw e;
+  }
+}
+
+/** Autorise l'envoi direct (PUT) depuis les origines indiquées, en conservant celles déjà autorisées. */
+export async function autoriserOrigines(origines: string[]): Promise<string[]> {
+  const toutes = Array.from(new Set([...(await originesAutorisees()), ...origines].map((o) => o.trim()).filter(Boolean)));
+  await clientS3().send(
+    new PutBucketCorsCommand({
+      Bucket: bucket(),
+      CORSConfiguration: { CORSRules: [{ AllowedOrigins: toutes, AllowedMethods: ["PUT", "GET", "HEAD"], AllowedHeaders: ["*"], ExposeHeaders: ["ETag"], MaxAgeSeconds: 3600 }] },
+    }),
+  );
+  return toutes;
 }
 
 /** URL signée d'envoi direct depuis le navigateur (PUT, 10 minutes). */

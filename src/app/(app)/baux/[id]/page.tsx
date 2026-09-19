@@ -18,6 +18,7 @@ import { ActionDialogue } from "@/components/baux/action-dialogue";
 import { STATUTS_BAIL_COURT } from "@/components/baux/badge-statut";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 const ETAPES = ["BROUILLON", "EN_SIGNATURE", "SIGNE", "TERMINE"] as const;
 const ONGLETS = ["contrat", "loyers", "courriers", "revisions"] as const;
@@ -31,7 +32,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
     where: { id, entiteId: await entiteCouranteId() },
     include: {
       lot: { include: { bailleur: true } },
-      locataire: true,
+      locataires: includeLocataires,
       appels: { orderBy: { periode: "desc" }, include: { paiements: true } },
       revisions: { orderBy: { dateEffet: "asc" } },
       courriers: { orderBy: { createdAt: "desc" } },
@@ -51,7 +52,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
   const peutReviser = b.statut === "SIGNE" && b.clauseRevision && regle.revisionIRL;
   const derniereRevision = b.revisions[b.revisions.length - 1];
   const prochaineRevision = peutReviser ? ajouterAnnees(derniereRevision?.dateEffet ?? b.dateDebut, 1) : null;
-  const locataire = nomComplet(b.locataire);
+  const locataire = nomsLocataires(b.locataires);
   const loyerCC = b.loyerHC + b.charges;
   const lienOnglet = (o: Onglet) => (o === "contrat" ? `/baux/${b.id}` : `/baux/${b.id}?onglet=${o}`);
   const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
@@ -383,12 +384,19 @@ export default async function BailPage({ params, searchParams }: { params: Param
           </Card>
 
           <Card className="md:col-start-2 md:row-start-1">
-            <CardHeader titre="Locataire" />
-            <Link href={`/locataires/${b.locataire.id}`} className="block rounded-b-xl px-5 py-4 hover:bg-slate-50">
-              <div className="font-semibold text-navy-900">{locataire}</div>
-              {b.locataire.email ? <div className="mt-0.5 break-all text-[13px] text-slate-500">{b.locataire.email}</div> : <div className="mt-0.5 text-[13px] text-amber-700">Email non renseigné (nécessaire aux envois)</div>}
-              {b.locataire.telephone && <div className="text-[13px] text-slate-500">{b.locataire.telephone}</div>}
-            </Link>
+            <CardHeader titre={b.locataires.length > 1 ? `Locataires (${b.locataires.length})` : "Locataire"} />
+            <ul className="divide-y divide-slate-100 overflow-hidden rounded-b-xl">
+              {b.locataires.map((l) => (
+                <li key={l.id}>
+                  <Link href={`/locataires/${l.id}`} className="block px-5 py-3.5 hover:bg-slate-50">
+                    <div className="font-semibold text-navy-900">{nomComplet(l)}</div>
+                    {l.email ? <div className="mt-0.5 break-all text-[13px] text-slate-500">{l.email}</div> : <div className="mt-0.5 text-[13px] text-amber-700">Email non renseigné (nécessaire aux envois)</div>}
+                    {l.telephone && <div className="text-[13px] text-slate-500">{l.telephone}</div>}
+                  </Link>
+                </li>
+              ))}
+              {b.locataires.length > 1 && <li className="px-5 py-2.5 text-xs text-slate-500">Titulaires solidaires du bail : les avis, quittances et courriers sont adressés à chacun.</li>}
+            </ul>
           </Card>
 
           <Card className="md:col-start-2 md:row-start-2">

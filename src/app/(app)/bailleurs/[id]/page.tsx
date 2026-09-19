@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { TYPES_LOT, TYPES_PERSONNE, adresseSurPlusieursLignes, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
+import { TYPES_LOT, TYPES_PERSONNE, adresseSurPlusieursLignes, adresseSurUneLigne } from "@/lib/libelles";
 import { supprimerBailleur } from "@/actions/bailleurs";
 import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Tableau, TableauPied, Td, Th } from "@/components/ui";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 const pluriel = (n: number) => (n > 1 ? "s" : "");
 
@@ -17,7 +18,7 @@ export default async function BailleurPage({ params, searchParams }: { params: P
   const b = await prisma.bailleur.findFirst({
     where: { id, entiteId: await entiteCouranteId() },
     include: {
-      lots: { orderBy: { nom: "asc" }, include: { immeuble: true, baux: { where: { statut: "SIGNE" }, include: { locataire: true }, orderBy: { dateDebut: "desc" }, take: 1 } } },
+      lots: { orderBy: { nom: "asc" }, include: { immeuble: true, baux: { where: { statut: "SIGNE" }, include: { locataires: includeLocataires }, orderBy: { dateDebut: "desc" }, take: 1 } } },
       immeubles: { orderBy: { nom: "asc" }, include: { _count: { select: { lots: true } } } },
     },
   });
@@ -116,7 +117,7 @@ export default async function BailleurPage({ params, searchParams }: { params: P
                       <Td className="text-slate-600">{l.immeuble ? <Link href={`/immeubles/${l.immeuble.id}`} className="hover:underline">{l.immeuble.nom}</Link> : <span className="text-slate-400">—</span>}</Td>
                       <Td className="text-slate-600">{TYPES_LOT[l.type]}</Td>
                       <Td className="text-slate-600">{adresseSurUneLigne(l)}</Td>
-                      <Td className="text-slate-600">{l.baux[0] ? nomComplet(l.baux[0].locataire) : <span className="text-slate-400">—</span>}</Td>
+                      <Td className="text-slate-600">{l.baux[0] ? nomsLocataires(l.baux[0].locataires) : <span className="text-slate-400">—</span>}</Td>
                       <Td>{l.baux[0] ? <Badge ton="vert">Loué</Badge> : <Badge ton="orange">Vacant</Badge>}</Td>
                     </tr>
                   ))}

@@ -17,10 +17,10 @@ import { envoyerEmail } from "@/lib/mail";
 import { emailContrat } from "@/lib/mail-modeles";
 import { messageErreur } from "@/lib/forms";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires, includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 const schemaBail = z.object({
   lotId: zId,
-  locataireId: zId,
   type: zEnum(["NON_MEUBLE", "MEUBLE", "MOBILITE"]),
   dateDebut: zDate,
   dateFin: zDate,
@@ -36,25 +36,36 @@ const schemaBail = z.object({
   notes: zTexteOpt(5000),
 });
 
+/** Identifiants des locataires cochés (champ répété « locataireIds »). */
+function locataireIdsDe(fd: FormData): number[] {
+  const ids = fd
+    .getAll("locataireIds")
+    .flatMap((v) => (typeof v === "string" ? v.split(",") : []))
+    .map((v) => Number(v.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return Array.from(new Set(ids));
+}
+
 async function preparerBail(fd: FormData) {
   const r = analyser(schemaBail, fd);
-  if (!r.success) return { ok: false as const, errors: r.errors };
+  const locataireIds = locataireIdsDe(fd);
+  if (!r.success) return { ok: false as const, errors: { ...r.errors, ...(locataireIds.length ? {} : { locataireIds: "Choisissez au moins un locataire." }) } };
   const d = r.data;
   const entiteId = await entiteCouranteId();
-  const [lot, locataire] = await Promise.all([
+  const [lot, locataires] = await Promise.all([
     prisma.lot.findFirst({ where: { id: d.lotId, entiteId }, select: { id: true, meuble: true } }),
-    prisma.locataire.findFirst({ where: { id: d.locataireId, entiteId }, select: { id: true } }),
+    prisma.locataire.findMany({ where: { id: { in: locataireIds }, entiteId }, select: { id: true } }),
   ]);
   const errors: Record<string, string> = {};
   if (!lot) errors.lotId = "Lot introuvable.";
-  if (!locataire) errors.locataireId = "Locataire introuvable.";
+  if (!locataireIds.length) errors.locataireIds = "Choisissez au moins un locataire.";
+  else if (locataires.length !== locataireIds.length) errors.locataireIds = "Locataire introuvable.";
   if (Object.keys(errors).length) return { ok: false as const, errors };
 
   const chargesForfait = d.type === "MOBILITE" ? true : d.chargesForfait;
   const data = {
     entiteId,
     lotId: d.lotId,
-    locataireId: d.locataireId,
     type: d.type,
     dateDebut: d.dateDebut,
     dateFin: d.dateFin,
@@ -71,7 +82,7 @@ async function preparerBail(fd: FormData) {
   };
   const verif = verifierRegles({ ...data, lotMeuble: lot!.meuble });
   if (Object.keys(verif.erreurs).length) return { ok: false as const, errors: verif.erreurs };
-  return { ok: true as const, data, avertissements: verif.avertissements };
+  return { ok: true as const, data, locataireIds, avertissements: verif.avertissements };
 }
 
 function messageAvecAvertissements(base: string, avertissements: string[]): string {
@@ -81,25 +92,26 @@ function messageAvecAvertissements(base: string, avertissements: string[]): stri
 export async function creerBail(_prev: FormState, fd: FormData): Promise<FormState> {
   const p = await preparerBail(fd);
   if (!p.ok) return echec(fd, p.errors);
-  const bail = await prisma.bail.create({ data: p.data });
+  const bail = await prisma.bail.create({ data: { ...p.data, locataires: { connect: p.locataireIds.map((id) => ({ id })) } } });
   revalidatePath("/baux");
   redirect(avecMessage(`/baux/${bail.id}`, messageAvecAvertissements("Bail créé en brouillon.", p.avertissements)));
 }
 
 export async function modifierBail(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const existant = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
+  const existant = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { locataires: { select: { id: true } } } });
   if (!existant) return erreur(fd, "Bail introuvable.");
   const verrouille = existant.statut === "SIGNE" || existant.statut === "TERMINE";
   if (verrouille) {
     // Les éléments structurants d'un bail signé ne se modifient pas.
     fd.set("lotId", String(existant.lotId));
-    fd.set("locataireId", String(existant.locataireId));
+    fd.delete("locataireIds");
+    for (const l of existant.locataires) fd.append("locataireIds", String(l.id));
     fd.set("type", existant.type);
     fd.set("dateDebut", toISODate(existant.dateDebut));
   }
   const p = await preparerBail(fd);
   if (!p.ok) return echec(fd, p.errors);
-  await prisma.bail.update({ where: { id }, data: p.data });
+  await prisma.bail.update({ where: { id }, data: { ...p.data, locataires: { set: p.locataireIds.map((lid) => ({ id: lid })) } } });
   if (verrouille) await recalculerAppelsNonRegles(id, periodeDe(aujourdhui()));
   revalidatePath("/baux");
   revalidatePath(`/baux/${id}`);
@@ -154,10 +166,10 @@ export async function marquerSigne(fd: FormData): Promise<void> {
 
   const conflit = await prisma.bail.findFirst({
     where: { lotId: bail.lotId, statut: "SIGNE", id: { not: id }, OR: [{ dateFinEffective: null }, { dateFinEffective: { gte: bail.dateDebut } }] },
-    include: { locataire: true },
+    include: { locataires: includeLocataires },
   });
   if (conflit) {
-    redirect(avecMessage(`/baux/${id}`, `Le lot a déjà un bail signé en cours avec ${conflit.locataire.prenom} ${conflit.locataire.nom}. Clôturez-le avant de signer celui-ci.`, "erreur"));
+    redirect(avecMessage(`/baux/${id}`, `Le lot a déjà un bail signé en cours avec ${nomsLocataires(conflit.locataires)}. Clôturez-le avant de signer celui-ci.`, "erreur"));
   }
 
   await prisma.bail.update({
@@ -242,15 +254,15 @@ export async function reviserLoyer(id: number, _prev: FormState, fd: FormData): 
   await recalculerAppelsNonRegles(id, periodeDe(r.data.dateEffet));
   revalidatePath(`/baux/${id}`);
   revalidatePath("/loyers");
-  redirect(avecMessage(`/baux/${id}`, `Loyer révisé : ${formatEuros(bail.loyerHC)} → ${formatEuros(nouveauLoyer)} hors charges à compter du ${toISODate(r.data.dateEffet).split("-").reverse().join("/")}. Vous pouvez rédiger le courrier de notification au locataire.`));
+  redirect(avecMessage(`/baux/${id}`, `Loyer révisé : ${formatEuros(bail.loyerHC)} → ${formatEuros(nouveauLoyer)} hors charges à compter du ${toISODate(r.data.dateEffet).split("-").reverse().join("/")}. Vous pouvez rédiger le courrier de notification aux locataires.`));
 }
 
 export async function envoyerContrat(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
-  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataire: true } });
+  const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataires: includeLocataires } });
   if (!bail) return erreur(fd, "Bail introuvable.");
   if (!bail.texteContrat?.trim()) return erreur(fd, "Enregistrez d'abord le texte du contrat.");
-  const email = bail.locataire.email;
-  if (!email) return erreur(fd, "Le locataire n'a pas d'adresse email.");
+  const email = emailsLocataires(bail.locataires);
+  if (!email.length) return erreur(fd, "Aucun locataire n'a d'adresse email.");
   try {
     const modele = emailContrat(bail);
     const pdf = await pdfContrat(bail);
@@ -264,5 +276,5 @@ export async function envoyerContrat(id: number, _prev: FormState, fd: FormData)
   } catch (e) {
     return erreur(fd, messageErreur(e));
   }
-  return succes(`Contrat envoyé à ${email}.`);
+  return succes(`Contrat envoyé à ${email.join(", ")}.`);
 }

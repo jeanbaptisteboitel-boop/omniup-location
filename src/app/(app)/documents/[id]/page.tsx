@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { CATEGORIES_MODELE, TYPES_BAIL_COURT, nomComplet } from "@/lib/libelles";
+import { CATEGORIES_MODELE, TYPES_BAIL_COURT } from "@/lib/libelles";
 import { formatDate, formatDateHeure } from "@/lib/dates";
 import { entiteCouranteId } from "@/lib/entite";
 import { mailConfigure } from "@/lib/mail";
@@ -16,6 +16,7 @@ import { Alerte, Badge, Button, ButtonLink, Card, Infos, PageHeader } from "@/co
 import { IconeApercu, IconeEnvoyer, IconeTelecharger } from "@/components/icones";
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
+import { emailsLocataires, formuleAppel, includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const maxDuration = 300;
 
@@ -24,13 +25,13 @@ export default async function DocumentPage({ params, searchParams }: { params: P
   const sp = await searchParams;
   const entiteId = await entiteCouranteId();
   const [d, baux] = await Promise.all([
-    prisma.documentGenere.findFirst({ where: { id, entiteId }, include: { bail: { include: { lot: { include: { bailleur: true } }, locataire: true } }, modele: { select: { id: true, nom: true } } } }),
-    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataire: true }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }] }),
+    prisma.documentGenere.findFirst({ where: { id, entiteId }, include: { bail: { include: { lot: { include: { bailleur: true } }, locataires: includeLocataires } }, modele: { select: { id: true, nom: true } } } }),
+    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataires: includeLocataires }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }] }),
   ]);
   if (!d) notFound();
   const bailleur = d.bail?.lot.bailleur;
-  const email = d.bail?.locataire.email ?? null;
-  const destinataire = d.bail ? nomComplet(d.bail.locataire) : null;
+  const email = d.bail ? emailsLocataires(d.bail.locataires).join(", ") || null : null;
+  const destinataire = d.bail ? nomsLocataires(d.bail.locataires) : null;
   return (
     <>
       <PageHeader
@@ -64,7 +65,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
         actionEnregistrer={modifierDocumentGenere.bind(null, d.id)}
         actionAdapter={adapterDocumentIA.bind(null, d.id)}
         initial={{ titre: d.titre, categorie: d.categorie, bailId: d.bailId, contenu: d.contenu }}
-        baux={baux.map((b) => ({ id: b.id, libelle: `${b.lot.nom} — ${nomComplet(b.locataire)} (${TYPES_BAIL_COURT[b.type].toLowerCase()}, du ${formatDate(b.dateDebut)})` }))}
+        baux={baux.map((b) => ({ id: b.id, libelle: `${b.lot.nom} — ${nomsLocataires(b.locataires)} (${TYPES_BAIL_COURT[b.type].toLowerCase()}, du ${formatDate(b.dateDebut)})` }))}
         iaConfiguree={iaConfiguree()}
         informations={
           <Card>
@@ -79,7 +80,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                     label: "Bail",
                     valeur: d.bail ? (
                       <Link href={`/baux/${d.bail.id}`} className="font-semibold text-navy-800 hover:underline">
-                        {d.bail.lot.nom} · {nomComplet(d.bail.locataire)}
+                        {d.bail.lot.nom} · {nomsLocataires(d.bail.locataires)}
                       </Link>
                     ) : (
                       "—"
@@ -112,7 +113,7 @@ export default async function DocumentPage({ params, searchParams }: { params: P
                 actionIA={genererEmail.bind(null, d.bail.id)}
                 destinataire={email}
                 objetDefaut={d.titre}
-                corpsDefaut={`Bonjour ${d.bail.locataire.civilite ? `${d.bail.locataire.civilite} ${d.bail.locataire.nom}` : "Madame, Monsieur"},\n\nVeuillez trouver ci-joint le document « ${d.titre} » concernant votre location (${d.bail.lot.nom}).\n\nNous restons à votre disposition pour toute question.\n\nCordialement,\n${bailleur?.representant ? `${bailleur.representant}\n${bailleur.nom}` : (bailleur?.nom ?? "")}`}
+                corpsDefaut={`Bonjour ${formuleAppel(d.bail.locataires)},\n\nVeuillez trouver ci-joint le document « ${d.titre} » concernant votre location (${d.bail.lot.nom}).\n\nNous restons à votre disposition pour toute question.\n\nCordialement,\n${bailleur?.representant ? `${bailleur.representant}\n${bailleur.nom}` : (bailleur?.nom ?? "")}`}
                 contexteIA={`Email d'accompagnement du document « ${d.titre} » (${CATEGORIES_MODELE[d.categorie]}) joint en PDF.`}
                 libelleBouton={d.dateEnvoi ? "Renvoyer par email" : "Envoyer par email"}
                 pieceJointe="le document"

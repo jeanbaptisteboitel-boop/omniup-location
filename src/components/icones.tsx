@@ -49,3 +49,4 @@ export const IconeOcr = (p: Props) => <Svg {...p}><path d="M4 8V5a1 1 0 0 1 1-1h
 export const IconeSignature = (p: Props) => <Svg {...p}><path d="M3 17c3-4 5-6 6-4s-1 5 1 5 3-4 5-4 2 3 6 1M14 5l3 3-8 8H6v-3z" /></Svg>;
 export const IconeCoche = (p: Props) => <Svg strokeWidth={2} {...p}><path d="M5 12l4 4 10-10" /></Svg>;
 export const IconeMotDePasse = (p: Props) => <Svg {...p}><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></Svg>;
+export const IconeIndices = (p: Props) => <Svg {...p}><path d="M3 17l5-6 4 4 5-7 4 4" /><path d="M3 21h18" /><path d="M17 8h4v4" /></Svg>;

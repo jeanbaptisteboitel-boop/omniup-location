@@ -1,6 +1,7 @@
 import { formatDate, formatPeriode } from "./dates";
 import { formatEuros } from "./montants";
-import { adresseSurUneLigne, nomComplet } from "./libelles";
+import { adresseSurUneLigne } from "./libelles";
+import { formuleAppel } from "./locataires";
 import { numeroAppel } from "./loyers";
 import type { AppelComplet } from "./pdf/donnees";
 
@@ -9,15 +10,11 @@ function signature(bailleur: { nom: string; representant: string | null } | null
   return bailleur.representant ? `${bailleur.representant}\n${bailleur.nom}` : bailleur.nom;
 }
 
-function appel(locataire: { civilite: string | null; nom: string }): string {
-  return locataire.civilite ? `${locataire.civilite} ${locataire.nom}` : "Madame, Monsieur";
-}
-
 export function emailAvis(a: AppelComplet): { objet: string; corps: string } {
   const { bail } = a;
   const bailleur = bail.lot.bailleur;
   const lignes = [
-    `Bonjour ${appel(bail.locataire)},`,
+    `Bonjour ${formuleAppel(bail.locataires)},`,
     "",
     `Veuillez trouver ci-joint l'avis d'échéance n° ${numeroAppel(a.id)} de votre loyer pour ${formatPeriode(a.periode).toLowerCase()}, concernant le logement situé ${adresseSurUneLigne(bail.lot)}.`,
     "",
@@ -37,7 +34,7 @@ export function emailQuittance(a: AppelComplet, integral: boolean): { objet: str
   const bailleur = bail.lot.bailleur;
   const dernier = a.paiements[a.paiements.length - 1];
   const lignes = [
-    `Bonjour ${appel(bail.locataire)},`,
+    `Bonjour ${formuleAppel(bail.locataires)},`,
     "",
     integral
       ? `Nous accusons réception de votre paiement${dernier ? ` du ${formatDate(dernier.date)}` : ""} et vous prions de trouver ci-joint la quittance de loyer pour ${formatPeriode(a.periode).toLowerCase()} (${formatEuros(a.total)}), concernant le logement situé ${adresseSurUneLigne(bail.lot)}.`
@@ -51,9 +48,9 @@ export function emailQuittance(a: AppelComplet, integral: boolean): { objet: str
   return { objet: `${integral ? "Quittance de loyer" : "Reçu de paiement"} - ${formatPeriode(a.periode).toLowerCase()} - ${bail.lot.nom}`, corps: lignes.join("\n") };
 }
 
-export function emailCourrier(c: { objet: string; bail: { lot: { nom: string; bailleur: { nom: string; representant: string | null } | null }; locataire: { civilite: string | null; nom: string; prenom: string } } }): { objet: string; corps: string } {
+export function emailCourrier(c: { objet: string; bail: { lot: { nom: string; bailleur: { nom: string; representant: string | null } | null }; locataires: { civilite: string | null; nom: string }[] } }): { objet: string; corps: string } {
   const lignes = [
-    `Bonjour ${appel(c.bail.locataire)},`,
+    `Bonjour ${formuleAppel(c.bail.locataires)},`,
     "",
     `Veuillez trouver ci-joint un courrier concernant votre location (${c.bail.lot.nom}) : ${c.objet}.`,
     "",
@@ -62,13 +59,12 @@ export function emailCourrier(c: { objet: string; bail: { lot: { nom: string; ba
     "Cordialement,",
     signature(c.bail.lot.bailleur),
   ];
-  void nomComplet;
   return { objet: c.objet, corps: lignes.join("\n") };
 }
 
-export function emailContrat(b: { lot: { nom: string; adresse: string; complementAdresse: string | null; codePostal: string; ville: string; bailleur: { nom: string; representant: string | null } | null }; locataire: { civilite: string | null; nom: string } }): { objet: string; corps: string } {
+export function emailContrat(b: { lot: { nom: string; adresse: string; complementAdresse: string | null; codePostal: string; ville: string; bailleur: { nom: string; representant: string | null } | null }; locataires: { civilite: string | null; nom: string }[] }): { objet: string; corps: string } {
   const lignes = [
-    `Bonjour ${appel(b.locataire)},`,
+    `Bonjour ${formuleAppel(b.locataires)},`,
     "",
     `Veuillez trouver ci-joint le projet de contrat de location pour le logement situé ${adresseSurUneLigne(b.lot)} (${b.lot.nom}).`,
     "",

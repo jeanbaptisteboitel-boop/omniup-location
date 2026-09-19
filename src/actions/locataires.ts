@@ -47,7 +47,7 @@ export async function supprimerLocataire(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const existant = await prisma.locataire.findFirst({ where: { id, entiteId: await entiteCouranteId() }, select: { id: true } });
   if (!existant) redirect("/locataires");
-  const nbBaux = await prisma.bail.count({ where: { locataireId: id } });
+  const nbBaux = await prisma.bail.count({ where: { locataires: { some: { id } } } });
   if (nbBaux) redirect(avecMessage(`/locataires/${id}`, "Impossible de supprimer ce locataire : des baux lui sont rattachés. Supprimez d'abord les baux.", "erreur"));
   const documents = await prisma.document.findMany({ where: { locataireId: id }, select: { chemin: true } });
   try {

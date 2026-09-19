@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
-import { nomComplet } from "@/lib/libelles";
 import { ajouterAnnees, ajouterJours, aujourdhui, formatDate, formatPeriode, jourUTC, periodeDe } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
 import { etatAppel } from "@/lib/loyers";
@@ -13,6 +12,7 @@ import { ButtonLink, Card, CardHeader, PageHeader, Pastille, Stat, Tableau, Td, 
 import { IconeChevronDroite, IconeCoche } from "@/components/icones";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { entiteCourante } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function TableauDeBord() {
   const [lots, nbLocataires, baux, appels, depensesAnnee, nbImmeubles] = await Promise.all([
     prisma.lot.findMany({ where: { entiteId }, select: { id: true, baux: { where: { statut: "SIGNE" }, select: { id: true } } } }),
     prisma.locataire.count({ where: { entiteId } }),
-    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataire: true, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } }),
+    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataires: includeLocataires, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } }),
     prisma.appelLoyer.findMany({ where: { bail: { entiteId } }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] }),
     prisma.depense.aggregate({ where: { entiteId, date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) } }, _sum: { montant: true }, _count: { _all: true } }),
     prisma.immeuble.count({ where: { entiteId } }),
@@ -70,16 +70,16 @@ export default async function TableauDeBord() {
     taches.push({ cle: "quittances", href: "/loyers?statut=PAYE", ton: "orange", n: quittancesAEnvoyer.length, texte: `quittance${pluriel(quittancesAEnvoyer.length)} à envoyer` });
   }
   for (const b of bauxEnCours) {
-    taches.push({ cle: `bail-${b.id}`, href: `/baux/${b.id}`, ton: "bleu", n: b.lot.nom, texte: b.statut === "EN_SIGNATURE" ? "bail en signature" : "brouillon de bail", detail: nomComplet(b.locataire) });
+    taches.push({ cle: `bail-${b.id}`, href: `/baux/${b.id}`, ton: "bleu", n: b.lot.nom, texte: b.statut === "EN_SIGNATURE" ? "bail en signature" : "brouillon de bail", detail: nomsLocataires(b.locataires) });
   }
   if (enRetard.length) {
     taches.push({ cle: "retards", href: "/loyers?statut=EN_RETARD", ton: "rouge", n: enRetard.length, texte: `loyer${pluriel(enRetard.length)} en retard`, detail: `${formatEuros(resteRetard)} à relancer` });
   }
   for (const b of revisionsDues) {
-    taches.push({ cle: `rev-${b.id}`, href: `/baux/${b.id}/revision`, ton: "bleu", n: b.lot.nom, texte: "révision annuelle du loyer possible", detail: `${nomComplet(b.locataire)} · depuis le ${formatDate(ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1))}` });
+    taches.push({ cle: `rev-${b.id}`, href: `/baux/${b.id}/revision`, ton: "bleu", n: b.lot.nom, texte: "révision annuelle du loyer possible", detail: `${nomsLocataires(b.locataires)} · depuis le ${formatDate(ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1))}` });
   }
   for (const b of finsProches) {
-    taches.push({ cle: `fin-${b.id}`, href: `/baux/${b.id}`, ton: "bleu", n: b.lot.nom, texte: `bail mobilité · se termine le ${formatDate(b.dateFin)}`, detail: nomComplet(b.locataire) });
+    taches.push({ cle: `fin-${b.id}`, href: `/baux/${b.id}`, ton: "bleu", n: b.lot.nom, texte: `bail mobilité · se termine le ${formatDate(b.dateFin)}`, detail: nomsLocataires(b.locataires) });
   }
 
   const derniers = etats.slice(0, 8);
@@ -227,7 +227,7 @@ export default async function TableauDeBord() {
                         <Td className="py-2.5!">
                           <Link href={`/loyers/${a.id}`} className="whitespace-nowrap font-semibold text-navy-900 hover:underline">{a.bail.lot.nom}</Link>
                           <span className="block text-xs text-slate-500">
-                            {nomComplet(a.bail.locataire)}
+                            {nomsLocataires(a.bail.locataires)}
                             {a.periode !== periode && ` · ${formatPeriode(a.periode)}`}
                           </span>
                         </Td>
@@ -257,7 +257,7 @@ export default async function TableauDeBord() {
                           <span className="min-w-0">
                             <span className="block font-semibold text-navy-900">{a.bail.lot.nom}</span>
                             <span className="block text-xs text-slate-500">
-                              {nomComplet(a.bail.locataire)}
+                              {nomsLocataires(a.bail.locataires)}
                               {a.periode !== periode && ` · ${formatPeriode(a.periode)}`}
                             </span>
                           </span>

@@ -21,6 +21,7 @@ const EXEMPLES: Record<string, string> = {
   "bailleur.siren": "812 345 678",
   "bailleur.iban": "FR76 1027…",
   "locataire.nomComplet": "Mme Camille Dupont",
+  "locataire.identification": "Mme Camille Dupont, née le 14/03/1991, demeurant 4 allée des Tilleuls…",
   "locataire.dateNaissance": "14/03/1991",
   "locataire.adresse": "4 allée des Tilleuls…",
   "locataire.email": "camille.dupont@…",

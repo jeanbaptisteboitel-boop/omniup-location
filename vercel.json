@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/loyers",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/indices",
+      "schedule": "30 7 * * *"
     }
   ]
 }

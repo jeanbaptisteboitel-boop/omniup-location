@@ -12,6 +12,7 @@ import { pdfCourrier } from "@/lib/pdf/documents";
 import { envoyerEmail } from "@/lib/mail";
 import { emailCourrier } from "@/lib/mail-modeles";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires } from "@/lib/locataires";
 
 const schemaCourrier = z.object({
   type: zEnum(["REVISION_LOYER", "RELANCE", "AUTRE"]),
@@ -52,8 +53,8 @@ export async function supprimerCourrier(fd: FormData): Promise<void> {
 export async function envoyerCourrier(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const c = await chargerCourrier(id);
   if (!c || c.bail.entiteId !== (await entiteCouranteId())) return erreur(fd, "Courrier introuvable.");
-  const email = c.bail.locataire.email;
-  if (!email) return erreur(fd, "Le locataire n'a pas d'adresse email.");
+  const email = emailsLocataires(c.bail.locataires);
+  if (!email.length) return erreur(fd, "Aucun locataire n'a d'adresse email.");
   try {
     const modele = emailCourrier(c);
     const pdf = await pdfCourrier(c);
@@ -70,5 +71,5 @@ export async function envoyerCourrier(id: number, _prev: FormState, fd: FormData
   await prisma.courrier.update({ where: { id }, data: { dateEnvoi: new Date() } });
   revalidatePath(`/courriers/${id}`);
   revalidatePath(`/baux/${c.bailId}`);
-  return succes(`Courrier envoyé à ${email}.`);
+  return succes(`Courrier envoyé à ${email.join(", ")}.`);
 }

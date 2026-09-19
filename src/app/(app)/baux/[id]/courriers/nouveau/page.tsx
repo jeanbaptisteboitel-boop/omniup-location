@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { TypeCourrier } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { entierParam, idDepuis, texteParam, type ParamsId, type SearchParams } from "@/lib/params";
-import { nomComplet } from "@/lib/libelles";
 import { aujourdhui } from "@/lib/dates";
 import { etatAppel } from "@/lib/loyers";
 import { iaConfiguree } from "@/lib/ia-config";
@@ -11,13 +10,14 @@ import { genererCourrier } from "@/actions/ia";
 import { CourrierEditeur } from "@/components/courriers/courrier-editeur";
 import { Card, CardBody, PageHeader } from "@/components/ui";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Nouveau courrier" };
 
 export default async function NouveauCourrierPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
-  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: true, locataire: true, revisions: { select: { id: true } }, appels: { include: { paiements: true } } } });
+  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: true, locataires: includeLocataires, revisions: { select: { id: true } }, appels: { include: { paiements: true } } } });
   if (!b) notFound();
   const typeParam = texteParam(sp, "type");
   const type: TypeCourrier = typeParam === "REVISION_LOYER" || typeParam === "RELANCE" ? typeParam : "AUTRE";
@@ -28,7 +28,7 @@ export default async function NouveauCourrierPage({ params, searchParams }: { pa
   });
   return (
     <>
-      <PageHeader titre="Nouveau courrier" sousTitre={`${b.lot.nom} · destinataire : ${nomComplet(b.locataire)}. Rédigez le courrier à la main ou avec l'assistant IA, puis téléchargez-le en PDF ou envoyez-le par email.`} retour={{ href: `/baux/${b.id}`, libelle: "Bail" }} />
+      <PageHeader titre="Nouveau courrier" sousTitre={`${b.lot.nom} · destinataire : ${nomsLocataires(b.locataires)}. Rédigez le courrier à la main ou avec l'assistant IA, puis téléchargez-le en PDF ou envoyez-le par email.`} retour={{ href: `/baux/${b.id}`, libelle: "Bail" }} />
       <Card className="max-w-3xl">
         <CardBody>
           <CourrierEditeur

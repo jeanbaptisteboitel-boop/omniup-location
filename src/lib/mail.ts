@@ -52,8 +52,9 @@ function transporteur(): Transporter {
   return transport;
 }
 
-export async function envoyerEmail(params: { a: string; objet: string; texte: string; repondreA?: string | null; piecesJointes?: PieceJointe[] }): Promise<void> {
-  if (!params.a) throw new Error("Le destinataire n'a pas d'adresse email.");
+export async function envoyerEmail(params: { a: string | string[]; objet: string; texte: string; repondreA?: string | null; piecesJointes?: PieceJointe[] }): Promise<void> {
+  const destinataires = (Array.isArray(params.a) ? params.a : [params.a]).map((d) => d.trim()).filter(Boolean);
+  if (destinataires.length === 0) throw new Error("Le destinataire n'a pas d'adresse email.");
   const fournisseur = fournisseurMail();
   if (!fournisseur) {
     throw new Error("L'envoi d'emails n'est pas configuré : renseignez RESEND_API_KEY et MAIL_FROM (ou les variables SMTP_*) dans le fichier .env.");
@@ -64,7 +65,7 @@ export async function envoyerEmail(params: { a: string; objet: string; texte: st
   if (fournisseur === "resend") {
     const { error } = await clientResend().emails.send({
       from,
-      to: params.a,
+      to: destinataires.length === 1 ? destinataires[0] : destinataires,
       replyTo: params.repondreA || undefined,
       subject: params.objet,
       text: params.texte,
@@ -76,7 +77,7 @@ export async function envoyerEmail(params: { a: string; objet: string; texte: st
 
   await transporteur().sendMail({
     from,
-    to: params.a,
+    to: destinataires.length === 1 ? destinataires[0] : destinataires,
     replyTo: params.repondreA ?? undefined,
     subject: params.objet,
     text: params.texte,

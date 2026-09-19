@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { TYPES_COURRIER, nomComplet } from "@/lib/libelles";
+import { TYPES_COURRIER } from "@/lib/libelles";
 import { aujourdhui, formatDate, formatDateHeure } from "@/lib/dates";
 import { etatAppel } from "@/lib/loyers";
 import { chargerCourrier } from "@/lib/pdf/donnees";
@@ -17,6 +17,8 @@ import { Flash } from "@/components/flash";
 import { CourrierEditeur } from "@/components/courriers/courrier-editeur";
 import { EnvoiEmail } from "@/components/envoi-email";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires } from "@/lib/locataires";
+import { LiensLocataires } from "@/components/locataires/liens-locataires";
 
 export default async function CourrierPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
@@ -41,7 +43,7 @@ export default async function CourrierPage({ params, searchParams }: { params: P
         badge={c.dateEnvoi ? <Badge ton="vert">Envoyé le {formatDate(c.dateEnvoi)}</Badge> : <Badge ton="gris">Non envoyé</Badge>}
         sousTitre={
           <span>
-            {TYPES_COURRIER[c.type]} · créé le {formatDate(c.createdAt)}{c.dateEnvoi ? ` · envoyé le ${formatDateHeure(c.dateEnvoi)}` : ""} · <Link href={`/locataires/${c.bail.locataire.id}`} className="text-navy-800 hover:underline">{nomComplet(c.bail.locataire)}</Link> · <Link href={`/baux/${c.bail.id}`} className="text-navy-800 hover:underline">{c.bail.lot.nom}</Link>
+            {TYPES_COURRIER[c.type]} · créé le {formatDate(c.createdAt)}{c.dateEnvoi ? ` · envoyé le ${formatDateHeure(c.dateEnvoi)}` : ""} · <LiensLocataires locataires={c.bail.locataires} className="text-navy-800 hover:underline" /> · <Link href={`/baux/${c.bail.id}`} className="text-navy-800 hover:underline">{c.bail.lot.nom}</Link>
           </span>
         }
         retour={{ href: `/baux/${c.bailId}?onglet=courriers`, libelle: "Bail" }}
@@ -64,7 +66,7 @@ export default async function CourrierPage({ params, searchParams }: { params: P
             <EnvoiEmail
               action={envoyerCourrier.bind(null, c.id)}
               actionIA={genererEmail.bind(null, c.bailId)}
-              destinataire={c.bail.locataire.email}
+              destinataire={emailsLocataires(c.bail.locataires).join(", ") || null}
               objetDefaut={modele.objet}
               corpsDefaut={modele.corps}
               contexteIA={`Email d'accompagnement d'un courrier « ${c.objet} » (${TYPES_COURRIER[c.type]}) joint en PDF.`}

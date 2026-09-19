@@ -208,7 +208,8 @@ model Locataire {
   email             String?
   notes             String?
   documents         Document[]
-  baux              Bail[]
+  /// Baux dont la personne est titulaire (seule ou avec d'autres locataires : couple, colocation).
+  baux              Bail[]     @relation("BailLocataires")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -255,15 +256,14 @@ enum StatutBail {
   TERMINE
 }
 
-/// Bail : lien entre un lot et un locataire.
+/// Bail : lien entre un lot et un ou plusieurs locataires (titulaires solidaires : couple, colocation).
 model Bail {
   id               Int              @id @default(autoincrement())
   entiteId         Int
   entite           Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   lotId            Int
   lot              Lot              @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  locataireId      Int
-  locataire        Locataire        @relation(fields: [locataireId], references: [id], onDelete: Restrict)
+  locataires       Locataire[]      @relation("BailLocataires")
   type             TypeBail
   statut           StatutBail       @default(BROUILLON)
   dateDebut        DateTime
@@ -448,4 +448,85 @@ model EcheanceEmprunt {
   capitalRestant Float?
 
   @@index([empruntId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Indices INSEE (IRL, ILC, ILAT, ICC, BT01…) : référentiel des séries et historique des valeurs
+// ---------------------------------------------------------------------------
+
+/// Fréquence de publication d'une série : mensuelle, trimestrielle ou annuelle.
+enum FrequenceSerie {
+  M
+  Q
+  A
+}
+
+/// Série de la Banque de données macroéconomiques (BDM) de l'INSEE suivie par l'application.
+/// Référentiel vivant en base : une série s'ajoute ou se remplace (rebasage) sans redéploiement ;
+/// une seule série active par code, l'ancienne restant inactive avec son historique.
+model IndiceSerie {
+  id                Int                 @id @default(autoincrement())
+  code              String
+  idbank            String              @unique
+  libelle           String
+  libelleInsee      String?
+  frequence         FrequenceSerie
+  unite             String?
+  base              String?
+  active            Boolean             @default(true)
+  derniereSync      DateTime?
+  dernierePeriode   String?
+  echecsConsecutifs Int                 @default(0)
+  dernierEchec      String?
+  observations      IndiceObservation[]
+  revisions         IndiceRevision[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([code, active])
+}
+
+/// Valeur publiée d'une série pour une période (« 2026-06 », « 2026-Q2 » ou « 2026 »).
+/// La valeur est conservée en numérique exact (jamais en flottant).
+model IndiceObservation {
+  id           Int         @id @default(autoincrement())
+  serieId      Int
+  serie        IndiceSerie @relation(fields: [serieId], references: [id], onDelete: Cascade)
+  periode      String
+  debutPeriode DateTime
+  valeur       Decimal     @db.Decimal(18, 6)
+  statut       String?
+  publieLe     DateTime?
+  recupereLe   DateTime    @default(now())
+
+  @@unique([serieId, periode])
+  @@index([serieId, debutPeriode])
+}
+
+/// Révision d'une valeur déjà enregistrée (valeur provisoire devenue définitive, correction de l'INSEE).
+model IndiceRevision {
+  id             Int         @id @default(autoincrement())
+  serieId        Int
+  serie          IndiceSerie @relation(fields: [serieId], references: [id], onDelete: Cascade)
+  periode        String
+  ancienneValeur Decimal     @db.Decimal(18, 6)
+  nouvelleValeur Decimal     @db.Decimal(18, 6)
+  ancienStatut   String?
+  nouveauStatut  String?
+  createdAt      DateTime    @default(now())
+
+  @@index([serieId, createdAt])
+}
+
+/// Journal d'exécution d'une synchronisation (cron quotidien, lancement manuel ou première utilisation).
+model IndiceSynchronisation {
+  id                     Int       @id @default(autoincrement())
+  declencheur            String
+  debut                  DateTime  @default(now())
+  fin                    DateTime?
+  seriesInterrogees      Int       @default(0)
+  observationsCreees     Int       @default(0)
+  observationsMisesAJour Int       @default(0)
+  erreurs                String?
+  alertes                String?
 }

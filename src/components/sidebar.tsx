@@ -3,24 +3,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "./nav-link";
 import { MobileNav } from "./mobile-nav";
 import { Marque } from "./logomark";
-import {
-  IconeBail,
-  IconeBailleur,
-  IconeCalculatrice,
-  IconeDepenses,
-  IconeDocuments,
-  IconeEmprunts,
-  IconeEntites,
-  IconeEuro,
-  IconeIA,
-  IconeImmeuble,
-  IconeLocataires,
-  IconeLot,
-  IconeModeles,
-  IconeParametres,
-  IconeSynthese,
-  IconeTableauDeBord,
-} from "./icones";
+import { IconeBail, IconeBailleur, IconeCalculatrice, IconeDepenses, IconeDocuments, IconeEmprunts, IconeEntites, IconeEuro, IconeIA, IconeImmeuble, IconeLocataires, IconeLot, IconeModeles, IconeParametres, IconeSynthese, IconeTableauDeBord, IconeIndices } from "./icones";
 import { protectionActive } from "@/lib/session";
 import { seDeconnecter } from "@/actions/session";
 import { entiteCourante, listeEntites, multiEntitesActif } from "@/lib/entite";
@@ -62,6 +45,7 @@ const GROUPES: { titre: string | null; liens: Lien[] }[] = [
     liens: [
       { href: "/outils", libelle: "Calculatrices", icone: <IconeCalculatrice /> },
       { href: "/assistant", libelle: "Assistant IA", icone: <IconeIA /> },
+      { href: "/indices", libelle: "Indices INSEE", icone: <IconeIndices /> },
     ],
   },
 ];
@@ -108,7 +92,7 @@ async function PanneauNav({ multi }: { multi: boolean }) {
         ))}
       </nav>
       <div className="mt-3 flex items-center justify-between border-t border-white/8 px-2.5 pt-2.5">
-        <p className="text-[11px] text-navy-300">Gestion locative · v0.3</p>
+        <p className="text-[11px] text-navy-300">Gestion locative · v0.4</p>
         <Deconnexion />
       </div>
     </div>

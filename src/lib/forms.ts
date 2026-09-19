@@ -8,11 +8,12 @@ export type FormState = {
   values?: Record<string, string>;
 } | null;
 
-/** Extrait les champs texte d'un FormData (les fichiers sont ignorés). */
+/** Extrait les champs texte d'un FormData (les fichiers sont ignorés) ; un champ répété (cases à cocher) est joint par des virgules. */
 export function valeursDe(fd: FormData): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of fd.entries()) {
-    if (typeof v === "string" && !k.startsWith("$ACTION")) out[k] = v;
+    if (typeof v !== "string" || k.startsWith("$ACTION")) continue;
+    out[k] = k in out ? `${out[k]},${v}` : v;
   }
   return out;
 }

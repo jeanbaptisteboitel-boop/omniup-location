@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<message:StructureSpecificData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message">
+  <message:Header><message:ID>SERIES_BDM</message:ID></message:Header>
+  <message:DataSet structureRef="FR1_SERIES_BDM">
+    <Series IDBANK="001532540" FREQ="T" TITLE_FR="Indice des loyers commerciaux (ILC) - Base 100 au 1er trimestre 2008" LAST_UPDATE="2026-09-24" BASE_PER="2008-Q1">
+      <Obs TIME_PERIOD="2026-Q2" OBS_VALUE="138.42" OBS_STATUS="A"/>
+    </Series>
+    <Series IDBANK="001617112" FREQ="T" TITLE_FR="Indice des loyers des activités tertiaires (ILAT) - Base 100 au 1er trimestre 2010" LAST_UPDATE="2026-09-24" BASE_PER="2010-Q1">
+      <Obs TIME_PERIOD="2026-Q2" OBS_VALUE="140.05" OBS_STATUS="A"/>
+      <Obs TIME_PERIOD="2026-Q1" OBS_VALUE="139.55" OBS_STATUS="A"/>
+    </Series>
+  </message:DataSet>
+</message:StructureSpecificData>

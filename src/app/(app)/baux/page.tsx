@@ -2,13 +2,15 @@ import Link from "next/link";
 import type { StatutBail } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { texteParam, type SearchParams } from "@/lib/params";
-import { TYPES_BAIL_COURT, nomComplet } from "@/lib/libelles";
+import { TYPES_BAIL_COURT } from "@/lib/libelles";
 import { formatDate } from "@/lib/dates";
 import { formatEuros } from "@/lib/montants";
 import { ButtonLink, Card, Filtres, PageHeader, Segments, Tableau, TableauPied, Td, Th } from "@/components/ui";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail, STATUTS_BAIL_COURT } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires } from "@/lib/locataires";
+import { LiensLocataires } from "@/components/locataires/liens-locataires";
 
 export const metadata = { title: "Baux" };
 
@@ -20,7 +22,7 @@ export default async function BauxPage({ searchParams }: { searchParams: SearchP
   const statut = filtre && STATUTS.includes(filtre) ? filtre : null;
   const entiteId = await entiteCouranteId();
   const [baux, compteurs] = await Promise.all([
-    prisma.bail.findMany({ where: { entiteId, ...(statut ? { statut } : {}) }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }], include: { lot: true, locataire: true } }),
+    prisma.bail.findMany({ where: { entiteId, ...(statut ? { statut } : {}) }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }], include: { lot: true, locataires: includeLocataires } }),
     prisma.bail.groupBy({ by: ["statut"], where: { entiteId }, _count: { _all: true } }),
   ]);
   const nb = (s: StatutBail) => compteurs.find((c) => c.statut === s)?._count._all ?? 0;
@@ -44,7 +46,7 @@ export default async function BauxPage({ searchParams }: { searchParams: SearchP
             {baux.map((b) => (
               <tr key={b.id} className="hover:bg-slate-50">
                 <Td className="whitespace-nowrap"><Link href={`/baux/${b.id}`} className="font-semibold text-navy-900 hover:underline">{b.lot.nom}</Link></Td>
-                <Td className="whitespace-nowrap text-slate-600"><Link href={`/locataires/${b.locataire.id}`} className="hover:underline">{nomComplet(b.locataire)}</Link></Td>
+                <Td className="text-slate-600"><LiensLocataires locataires={b.locataires} /></Td>
                 <Td className="whitespace-nowrap text-slate-600">{TYPES_BAIL_COURT[b.type]}</Td>
                 <Td className="whitespace-nowrap text-slate-600 tabular-nums">{formatDate(b.dateDebut)}</Td>
                 <Td className="whitespace-nowrap text-slate-600 tabular-nums">{formatDate(b.dateFinEffective ?? b.dateFin)}</Td>

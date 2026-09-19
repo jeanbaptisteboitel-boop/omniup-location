@@ -30,7 +30,7 @@ Le présent contrat est soumis au titre Ier de la loi n° 89-462 du 6 juillet 19
 
 Le bailleur : {{bailleur.nom}}, {{bailleur.qualite}}, {{bailleur.representant}}, demeurant {{bailleur.adresse}}, email {{bailleur.email}}, téléphone {{bailleur.telephone}}.
 
-Le locataire : {{locataire.nomComplet}}, né(e) le {{locataire.dateNaissance}}, demeurant {{locataire.adresse}}, email {{locataire.email}}, téléphone {{locataire.telephone}}.
+Le locataire : {{locataire.identification}}. En cas de pluralité de locataires, ceux-ci sont tenus solidairement et indivisiblement de l'ensemble des obligations du présent contrat.
 
 ## II. Objet du contrat
 
@@ -111,7 +111,7 @@ Le présent contrat est soumis au titre Ier bis de la loi n° 89-462 du 6 juille
 
 Le bailleur : {{bailleur.nom}}, {{bailleur.qualite}}, {{bailleur.representant}}, demeurant {{bailleur.adresse}}, email {{bailleur.email}}.
 
-Le locataire : {{locataire.nomComplet}}, né(e) le {{locataire.dateNaissance}}, demeurant {{locataire.adresse}}, email {{locataire.email}}, téléphone {{locataire.telephone}}.
+Le locataire : {{locataire.identification}}. En cas de pluralité de locataires, ceux-ci sont tenus solidairement et indivisiblement de l'ensemble des obligations du présent contrat.
 
 ## II. Objet du contrat
 
@@ -163,7 +163,7 @@ Le présent contrat est un bail mobilité soumis au titre Ier ter de la loi n° 
 
 Le bailleur : {{bailleur.nom}}, {{bailleur.qualite}}, {{bailleur.representant}}, demeurant {{bailleur.adresse}}, email {{bailleur.email}}.
 
-Le locataire : {{locataire.nomComplet}}, né(e) le {{locataire.dateNaissance}}, demeurant {{locataire.adresse}}, email {{locataire.email}}, téléphone {{locataire.telephone}}.
+Le locataire : {{locataire.identification}}. En cas de pluralité de locataires, ceux-ci sont tenus solidairement et indivisiblement de l'ensemble des obligations du présent contrat.
 
 Motif justifiant le recours au bail mobilité : {{bail.motifMobilite}}. Le locataire fournit le justificatif correspondant (attestation de formation, convention de stage, certificat de scolarité, lettre de mutation, ordre de mission), annexé au présent contrat.
 

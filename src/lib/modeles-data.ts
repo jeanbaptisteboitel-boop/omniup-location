@@ -4,7 +4,8 @@ import { prisma } from "./prisma";
 import { entiteCourante } from "./entite";
 import { type ContexteModele } from "./modeles";
 import { MODELES_DEFAUT } from "./modeles-defaut";
-import { TYPES_BAIL, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne, nomComplet } from "./libelles";
+import { TYPES_BAIL, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne } from "./libelles";
+import { identificationLocataires, includeLocataires, nomsLocataires, valeurParLocataire } from "./locataires";
 import { aujourdhui, formatDate, formatDateLongue } from "./dates";
 import { formatEuros, formatNombre, montantEnLettres } from "./montants";
 import { dureeEnMois } from "./bail-regles";
@@ -21,7 +22,7 @@ export async function initialiserModelesDefaut(): Promise<void> {
   });
 }
 
-export const includeBailPourModele = { lot: { include: { bailleur: true } }, locataire: true } satisfies Prisma.BailInclude;
+export const includeBailPourModele = { lot: { include: { bailleur: true } }, locataires: includeLocataires } satisfies Prisma.BailInclude;
 export type BailPourModele = Prisma.BailGetPayload<{ include: typeof includeBailPourModele }>;
 
 /** Variables disponibles sans bail (entité et date). */
@@ -34,7 +35,7 @@ export async function contexteBase(): Promise<ContexteModele> {
 export async function contexteDepuisBail(bail: BailPourModele): Promise<ContexteModele> {
   const base = await contexteBase();
   const b = bail.lot.bailleur;
-  const l = bail.locataire;
+  const ls = bail.locataires;
   const lot = bail.lot;
   const ctx: ContexteModele = {
     ...base,
@@ -46,11 +47,12 @@ export async function contexteDepuisBail(bail: BailPourModele): Promise<Contexte
     "bailleur.telephone": b?.telephone ?? "",
     "bailleur.siren": b?.siren ?? "",
     "bailleur.iban": b?.iban ?? "",
-    "locataire.nomComplet": nomComplet(l),
-    "locataire.dateNaissance": formatDate(l.dateNaissance),
-    "locataire.adresse": adresseSurUneLigne(l),
-    "locataire.email": l.email ?? "",
-    "locataire.telephone": l.telephone ?? "",
+    "locataire.nomComplet": nomsLocataires(ls),
+    "locataire.identification": identificationLocataires(ls),
+    "locataire.dateNaissance": valeurParLocataire(ls, (l) => formatDate(l.dateNaissance)),
+    "locataire.adresse": valeurParLocataire(ls, (l) => adresseSurUneLigne(l)),
+    "locataire.email": ls.map((l) => l.email ?? "").filter(Boolean).join(", "),
+    "locataire.telephone": ls.map((l) => l.telephone ?? "").filter(Boolean).join(", "),
     "lot.designation": lot.nom,
     "lot.type": TYPES_LOT[lot.type].toLowerCase(),
     "lot.adresse": adresseSurUneLigne(lot),

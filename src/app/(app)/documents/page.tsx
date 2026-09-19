@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { CategorieModele } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { texteParam, type SearchParams } from "@/lib/params";
-import { CATEGORIES_MODELE, nomComplet } from "@/lib/libelles";
+import { CATEGORIES_MODELE } from "@/lib/libelles";
 import { formatDate } from "@/lib/dates";
 import { entiteCouranteId } from "@/lib/entite";
 import { Badge, ButtonLink, Card, EmptyState, Filtres, PageHeader, Segments, Tableau, TableauPied, Td, Th } from "@/components/ui";
 import { Select } from "@/components/form";
 import { FiltresForm } from "@/components/filtres-form";
 import { Flash } from "@/components/flash";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Documents" };
 
@@ -23,7 +24,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
   const entiteId = await entiteCouranteId();
   const documents = await prisma.documentGenere.findMany({
     where: { entiteId, ...(categorie ? { categorie } : {}), ...(statut === "envoye" ? { dateEnvoi: { not: null } } : statut === "brouillon" ? { dateEnvoi: null } : {}) },
-    include: { bail: { include: { lot: true, locataire: true } }, modele: { select: { nom: true } } },
+    include: { bail: { include: { lot: true, locataires: includeLocataires } }, modele: { select: { nom: true } } },
     orderBy: { createdAt: "desc" },
   });
   const lien = (s: string | null) => {
@@ -77,7 +78,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                   <Td className="text-slate-600">
                     {d.bail ? (
                       <Link href={`/baux/${d.bail.id}`} className="hover:text-navy-900 hover:underline">
-                        {d.bail.lot.nom} · {nomComplet(d.bail.locataire)}
+                        {d.bail.lot.nom} · {nomsLocataires(d.bail.locataires)}
                       </Link>
                     ) : (
                       "—"

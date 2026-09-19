@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { entierParam, texteParam, type SearchParams } from "@/lib/params";
-import { nomComplet } from "@/lib/libelles";
 import { aujourdhui, formatDate, formatPeriode, periodeDe } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
 import { etatAppel, numeroAppel, type StatutAppel } from "@/lib/loyers";
@@ -16,6 +15,7 @@ import { Flash } from "@/components/flash";
 import { BadgeStatutAppel, LIBELLES_STATUT_APPEL } from "@/components/loyers/badge-statut";
 import { EtatAvis, EtatQuittance } from "@/components/loyers/etat-envoi";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Loyers et quittances" };
 
@@ -45,7 +45,7 @@ export default async function LoyersPage({ searchParams }: { searchParams: Searc
   const appelesDuMois = somme(duMois.map((l) => l.a.total));
   const encaissesDuMois = somme(duMois.map((l) => l.etat.regle));
   const enRetardDuMois = duMois.filter((l) => l.etat.statut === "EN_RETARD").length;
-  const avisEnAttente = lignes.filter((l) => !l.a.dateEnvoiAvis && l.a.bail.locataire.email).length;
+  const avisEnAttente = lignes.filter((l) => !l.a.dateEnvoiAvis && emailsLocataires(l.a.bail.locataires).length > 0).length;
 
   const periodes = Array.from(new Set(lignes.map((l) => l.a.periode))).sort((x, y) => (x < y ? 1 : -1));
   const lots = Array.from(new Map(lignes.map((l) => [l.a.bail.lotId, l.a.bail.lot.nom])).entries())
@@ -131,7 +131,7 @@ export default async function LoyersPage({ searchParams }: { searchParams: Searc
                     </Td>
                     <Td>
                       <Link href={`/baux/${a.bailId}`} className="font-semibold text-navy-900 hover:underline">{a.bail.lot.nom}</Link>
-                      <span className="block text-xs text-slate-500">{nomComplet(a.bail.locataire)}</span>
+                      <span className="block text-xs text-slate-500">{nomsLocataires(a.bail.locataires)}</span>
                     </Td>
                     <Td className="text-slate-600 tabular-nums">{formatDate(a.dateEcheance)}</Td>
                     <Td droite className="font-semibold">{formatEuros(a.total)}</Td>
@@ -161,7 +161,7 @@ export default async function LoyersPage({ searchParams }: { searchParams: Searc
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-semibold text-navy-900">{a.bail.lot.nom}</div>
-                    <div className="text-xs text-slate-500">{nomComplet(a.bail.locataire)} · {formatPeriode(a.periode)}</div>
+                    <div className="text-xs text-slate-500">{nomsLocataires(a.bail.locataires)} · {formatPeriode(a.periode)}</div>
                   </div>
                   <BadgeStatutAppel statut={etat.statut} />
                 </div>

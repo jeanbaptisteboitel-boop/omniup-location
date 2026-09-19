@@ -10,10 +10,13 @@ import { entiteCourante, multiEntitesActif } from "@/lib/entite";
 import { prisma } from "@/lib/prisma";
 import type { SearchParams } from "@/lib/params";
 import { TYPES_ENTITE } from "@/lib/libelles";
-import { envoyerEmailTest } from "@/actions/parametres";
+import { messageErreur } from "@/lib/forms";
+import { formatDateHeure } from "@/lib/dates";
+import { derniereSynchronisation } from "@/lib/insee/lecture";
+import { autoriserEnvoiDirect, envoyerEmailTest } from "@/actions/parametres";
 import { activerMultiEntites, desactiverMultiEntites, modifierEntite } from "@/actions/entites";
 import { Alerte, Button, ButtonLink, Card, CardBody, CardHeader, PageHeader } from "@/components/ui";
-import { IconeBailleur, IconeEntites, IconeEnvoyer, IconeEtincelle, IconeHorloge, IconeOcr, IconeSignature, IconeStockage } from "@/components/icones";
+import { IconeBailleur, IconeEntites, IconeEnvoyer, IconeEtincelle, IconeHorloge, IconeIndices, IconeOcr, IconeSignature, IconeStockage } from "@/components/icones";
 import { CarteService } from "@/components/parametres/carte-service";
 import { EmailTest } from "@/components/parametres/email-test";
 import { EntiteForm } from "@/components/entites/entite-form";
@@ -21,6 +24,20 @@ import { Flash } from "@/components/flash";
 
 export const metadata = { title: "Paramètres" };
 export const dynamic = "force-dynamic";
+
+/** Règle CORS du bucket : l'envoi direct depuis le navigateur exige que l'adresse de l'application y soit autorisée. */
+async function etatEnvoiDirect(): Promise<{ autorise: boolean | null; texte: string }> {
+  const attendues = (process.env.APP_URL ?? "").split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+  try {
+    const origines = await s3.originesAutorisees();
+    if (origines.length === 0) return { autorise: false, texte: "envoi direct depuis le navigateur pas encore autorisé : cliquez sur « Autoriser l'envoi direct »." };
+    const manquantes = origines.includes("*") ? [] : attendues.filter((o) => !origines.includes(o));
+    if (manquantes.length) return { autorise: false, texte: `envoi direct autorisé pour ${origines.join(", ")} mais pas pour ${manquantes.join(", ")} (APP_URL) : cliquez sur « Autoriser l'envoi direct ».` };
+    return { autorise: true, texte: `envoi direct depuis le navigateur autorisé pour ${origines.join(", ")}.` };
+  } catch (e) {
+    return { autorise: null, texte: `état de la règle CORS inconnu (${messageErreur(e)}).` };
+  }
+}
 
 /** Hôte de la base de données, sans identifiants. */
 function hoteBase(url: string): string {
@@ -33,17 +50,19 @@ function hoteBase(url: string): string {
 
 export default async function ParametresPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const [entite, multi, nbEntites] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count()]);
+  const [entite, multi, nbEntites, syncIndices, nbSeries] = await Promise.all([entiteCourante(), multiEntitesActif(), prisma.entite.count(), derniereSynchronisation(), prisma.indiceSerie.count({ where: { active: true } })]);
+  const indicesOk = !!syncIndices?.fin && !syncIndices.erreurs && Date.now() - syncIndices.fin.getTime() < 3 * 24 * 3600 * 1000;
   const mail = mailConfigure();
   const fournisseur = fournisseurMail();
   const libelleFournisseur = fournisseur === "resend" ? "Resend" : fournisseur === "smtp" ? "SMTP" : null;
   const ia = iaConfiguree();
   const ocr = mistralConfigure();
   const objet = stockageObjetConfigure();
-  const stockageOk = objet || !process.env.VERCEL;
+  const cors = objet ? await etatEnvoiDirect() : null;
+  const stockageOk = objet ? cors?.autorise !== false : !process.env.VERCEL;
   const cronSecret = !!process.env.CRON_SECRET;
   const envoiAuto = String(process.env.AVIS_ENVOI_AUTO ?? "").toLowerCase() === "true";
-  const services: boolean[] = [true, multi, stockageOk, mail, cronSecret, ia, ocr, false];
+  const services: boolean[] = [true, multi, stockageOk, mail, cronSecret, indicesOk, ia, ocr, false];
   const nbOk = services.filter(Boolean).length;
   return (
     <>
@@ -82,8 +101,15 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
             icone={<IconeStockage />}
             nom="Stockage des fichiers"
             configure={stockageOk}
-            detail={objet ? `Scaleway Object Storage · ${s3.region()} · ${s3.bucket()} · envoi direct depuis le navigateur (le bucket doit autoriser l'origine de l'application).` : `Disque local · ${local.racine()}${process.env.VERCEL ? " · à remplacer par un stockage objet sur Vercel." : ""}`}
-            variables="SCW_ACCESS_KEY, SCW_SECRET_KEY, SCW_BUCKET, SCW_REGION"
+            detail={objet ? `Scaleway Object Storage · ${s3.region()} · ${s3.bucket()} · ${cors?.texte ?? ""}` : `Disque local · ${local.racine()}${process.env.VERCEL ? " · à remplacer par un stockage objet sur Vercel." : ""}`}
+            variables="SCW_ACCESS_KEY, SCW_SECRET_KEY, SCW_BUCKET, SCW_REGION, APP_URL"
+            action={
+              objet ? (
+                <form action={autoriserEnvoiDirect}>
+                  <Button type="submit" taille="sm" variante={cors?.autorise ? "secondary" : "primary"}>{cors?.autorise ? "Mettre à jour l'autorisation d'envoi direct" : "Autoriser l'envoi direct"}</Button>
+                </form>
+              ) : undefined
+            }
           />
           <CarteService
             icone={<IconeEnvoyer />}
@@ -104,6 +130,13 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
             configure={cronSecret}
             detail={`Avis émis ${joursAvanceAvis()} jours avant le début du mois · envoi par email ${envoiAuto ? "automatique" : "manuel"} · point d'entrée planifié /api/cron/loyers${cronSecret ? " protégé par un secret" : " sans secret"}.`}
             variables="AVIS_JOURS_AVANCE, AVIS_ENVOI_AUTO, CRON_SECRET"
+          />
+          <CarteService
+            icone={<IconeIndices />}
+            nom="Indices INSEE"
+            configure={indicesOk}
+            detail={`${nbSeries} séries suivies (IRL, ILC, ILAT, ICC, BT01…) · synchronisation quotidienne /api/cron/indices${syncIndices ? ` · dernière le ${formatDateHeure(syncIndices.fin ?? syncIndices.debut)}${syncIndices.erreurs ? " (erreurs)" : ""}` : " · jamais exécutée"} · alertes ${process.env.ALERTES_EMAIL ? `envoyées à ${process.env.ALERTES_EMAIL}` : "affichées dans la page Indices (ALERTES_EMAIL pour les recevoir par email)"}.`}
+            action={<ButtonLink href="/indices" variante="secondary" taille="sm">Voir les indices</ButtonLink>}
           />
           <CarteService icone={<IconeEtincelle />} nom="Assistant IA" configure={ia} detail={`Anthropic · ${modeleIA()} · ${ia ? "clé API renseignée" : "clé API absente"}`} variables="ANTHROPIC_API_KEY, ANTHROPIC_MODEL" />
           <CarteService
@@ -153,7 +186,7 @@ export default async function ParametresPage({ searchParams }: { searchParams: S
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-slate-600">Version</dt>
-                <dd className="text-right font-semibold text-navy-900">OMNIUP Location v0.3</dd>
+                <dd className="text-right font-semibold text-navy-900">OMNIUP Location v0.4</dd>
               </div>
             </dl>
           </Card>

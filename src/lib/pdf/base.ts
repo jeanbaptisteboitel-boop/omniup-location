@@ -1,7 +1,8 @@
 import "server-only";
 import PDFDocument from "pdfkit";
-import type { Bailleur, Locataire, Lot } from "@prisma/client";
-import { adresseSurPlusieursLignes, nomComplet } from "../libelles";
+import type { Bailleur, Lot } from "@prisma/client";
+import { adresseSurPlusieursLignes } from "../libelles";
+import { nomsLocataires, type LocataireNom } from "../locataires";
 
 export const NAVY = "#172c52";
 export const GRIS = "#64748b";
@@ -62,8 +63,8 @@ export function lignesBailleur(b: Bailleur | null): { nom: string; lignes: strin
   };
 }
 
-export function lignesLocataire(l: Locataire, lot: Lot): { nom: string; lignes: string[] } {
-  return { nom: nomComplet(l), lignes: adresseSurPlusieursLignes(lot) };
+export function lignesLocataire(locataires: LocataireNom[], lot: Lot): { nom: string; lignes: string[] } {
+  return { nom: nomsLocataires(locataires), lignes: adresseSurPlusieursLignes(lot) };
 }
 
 /** En-tête : bailleur à gauche, titre et références à droite. */

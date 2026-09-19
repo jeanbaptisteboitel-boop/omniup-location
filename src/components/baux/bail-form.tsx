@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { Bail, TypeBail } from "@prisma/client";
 import type { FormState } from "@/lib/forms";
 import { MOTIFS_MOBILITE, TYPES_BAIL_COURT } from "@/lib/libelles";
@@ -8,12 +8,16 @@ import { REGLES_BAIL, dateFinParDefaut } from "@/lib/bail-regles";
 import { parseDateISO, toISODate } from "@/lib/dates";
 import { formatEuros, montantPourSaisie, parseMontant } from "@/lib/montants";
 import { trimestresIRL } from "@/lib/irl";
+import { dernierIndice, formatIndice, valeurTrimestre } from "@/lib/insee/utils";
+import { joindre } from "@/lib/locataires";
 import { Checkbox, Field, FormActions, FormMessage, Input, RadioCarte, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { Alerte, ButtonLink } from "@/components/ui";
+import { StatutIndices } from "@/components/indices/statut-indices";
+import { useIndicesINSEE } from "@/components/indices/use-indices";
 import { useVersion } from "./use-version";
 
 export type LotOption = { id: number; nom: string; adresse: string; codePostal: string; ville: string; meuble: boolean; bailleurPersonneMorale: boolean; loyerIndicatif?: number | null; chargesIndicatives?: number | null };
-export type LocataireOption = { id: number; nom: string };
+export type LocataireOption = { id: number; nom: string; detail?: string | null };
 
 const TYPES: { valeur: TypeBail; aide: string }[] = [
   { valeur: "NON_MEUBLE", aide: "Logement vide, 3 ans" },
@@ -27,9 +31,18 @@ const AIDE_DUREE: Record<TypeBail, string> = {
   MOBILITE: "De 1 à 10 mois, non renouvelable.",
 };
 
+const normaliser = (s: string) => s.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** Identifiants re-soumis après une erreur serveur (« 3,5 »), sinon la sélection initiale. */
+function idsDepuis(valeur: string | undefined, defaut: number[]): number[] {
+  if (valeur === undefined) return defaut;
+  return Array.from(new Set(valeur.split(",").map((v) => Number(v.trim())).filter((n) => Number.isInteger(n) && n > 0)));
+}
+
 export function BailForm({
   action,
   initial,
+  locataireIdsInitiaux = [],
   lots,
   locataires,
   annulerHref,
@@ -38,6 +51,8 @@ export function BailForm({
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   initial: Partial<Bail>;
+  /** Locataires déjà titulaires (modification) ou présélectionnés (création depuis une fiche). */
+  locataireIdsInitiaux?: number[];
   lots: LotOption[];
   locataires: LocataireOption[];
   annulerHref: string;
@@ -58,12 +73,52 @@ export function BailForm({
   const [loyerHC, setLoyerHC] = useState(valeurInitiale(state, "loyerHC", montantPourSaisie(initial.loyerHC)));
   const [charges, setCharges] = useState(valeurInitiale(state, "charges", montantPourSaisie(initial.charges ?? 0)));
 
+  // Locataires titulaires : cases à cocher (couple, colocation), avec un filtre quand la liste est longue.
+  const [selection, setSelection] = useState<number[]>(() => idsDepuis(state?.values?.locataireIds, locataireIdsInitiaux));
+  const [recherche, setRecherche] = useState("");
+  const rechercheNorm = normaliser(recherche.trim());
+  const selectionnes = locataires.filter((l) => selection.includes(l.id));
+  function basculer(id: number) {
+    setSelection((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+  // L'erreur du serveur sur les locataires ne s'affiche que tant que la sélection fautive n'a pas été modifiée.
+  const [selectionSoumise, setSelectionSoumise] = useState<number[] | null>(null);
+  useEffect(() => {
+    if (state) setSelectionSoumise(selection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+  const erreurLocataires = e.locataireIds && (selectionSoumise === null || selectionSoumise.join(",") === selection.join(",")) ? e.locataireIds : null;
+
+  // Indice de référence des loyers : le dernier IRL publié par l'INSEE est proposé pour un nouveau bail.
+  const indices = useIndicesINSEE("IRL", type !== "MOBILITE");
+  const [irlTrimestre, setIrlTrimestre] = useState(valeurInitiale(state, "irlTrimestre", initial.irlTrimestre));
+  const [irlValeur, setIrlValeur] = useState(valeurInitiale(state, "irlValeur", initial.irlValeur !== null && initial.irlValeur !== undefined ? String(initial.irlValeur).replace(".", ",") : ""));
+  useEffect(() => {
+    if (indices.statut !== "ok" || !indices.serie || irlTrimestre || irlValeur.trim()) return;
+    const dernier = dernierIndice(indices.serie);
+    if (dernier) {
+      setIrlTrimestre(dernier.trimestre);
+      setIrlValeur(formatIndice(dernier.valeur));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indices]);
+  function changerTrimestreIRL(t: string) {
+    setIrlTrimestre(t);
+    const o = indices.serie ? valeurTrimestre(indices.serie, t) : null;
+    if (o) setIrlValeur(formatIndice(o.valeur));
+  }
+  function utiliserDernierIRL() {
+    const d = indices.serie ? dernierIndice(indices.serie) : null;
+    if (d) {
+      setIrlTrimestre(d.trimestre);
+      setIrlValeur(formatIndice(d.valeur));
+    }
+  }
+
   const regle = REGLES_BAIL[type];
   const lot = lots.find((l) => String(l.id) === lotId);
   // Après une erreur serveur, React réinitialise le formulaire : les <select> non contrôlés sont remontés (key) sur la valeur re-soumise.
-  const locataireInitial = valeurInitiale(state, "locataireId", initial.locataireId);
   const motifInitial = valeurInitiale(state, "motifMobilite", initial.motifMobilite);
-  const irlTrimestreInitial = valeurInitiale(state, "irlTrimestre", initial.irlTrimestre);
   const montantLoyer = parseMontant(loyerHC) ?? 0;
   const total = montantLoyer + (parseMontant(charges) ?? 0);
   const plafondDepot = regle.depotMaxMois * montantLoyer;
@@ -94,13 +149,18 @@ export function BailForm({
   }
 
   const trimestres = trimestresIRL(new Date().getFullYear()).map((t) => ({ value: t, label: t }));
+  if (irlTrimestre && !trimestres.some((t) => t.value === irlTrimestre)) trimestres.unshift({ value: irlTrimestre, label: irlTrimestre });
   const aideDuree = `${AIDE_DUREE[type]}${finManuelle ? "" : " Proposée automatiquement ; modifiable."}`;
   const aideDepot = regle.depotMaxMois === 0 ? "Aucun dépôt de garantie autorisé en bail mobilité." : `Plafond légal : ${regle.depotMaxMois} mois de loyer hors charges${montantLoyer > 0 ? `, soit ${formatEuros(plafondDepot)}` : ""}.`;
+  const resumeLocataires =
+    selectionnes.length === 0
+      ? "Cochez le ou les titulaires du bail (couple, colocation) : ils sont solidaires du paiement du loyer."
+      : `${selectionnes.length > 1 ? `${selectionnes.length} locataires` : "1 locataire"} : ${joindre(selectionnes.map((l) => l.nom))}.`;
 
   return (
     <form key={version} action={formAction} className="flex flex-col gap-5">
       <FormMessage state={state} />
-      {verrouille && <Alerte ton="orange">Ce bail est signé : le lot, le locataire, le type et la date de début ne sont plus modifiables.</Alerte>}
+      {verrouille && <Alerte ton="orange">Ce bail est signé : le lot, les locataires, le type et la date de début ne sont plus modifiables.</Alerte>}
 
       <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
         <fieldset className="sm:col-span-2">
@@ -128,7 +188,7 @@ export function BailForm({
           {lot && !lot.meuble && type !== "NON_MEUBLE" && <p className="mt-1.5 text-xs font-semibold text-amber-800">Le lot choisi n'est pas indiqué comme meublé.</p>}
         </fieldset>
 
-        <Field label="Lot" name="lotId" requis error={e.lotId}>
+        <Field label="Lot" name="lotId" requis error={e.lotId} className="sm:col-span-2">
           <Select
             name="lotId"
             vide="Choisir un lot…"
@@ -139,9 +199,32 @@ export function BailForm({
             disabled={verrouille}
           />
         </Field>
-        <Field label="Locataire" name="locataireId" requis error={e.locataireId}>
-          <Select key={locataireInitial} name="locataireId" vide="Choisir un locataire…" options={locataires.map((l) => ({ value: String(l.id), label: l.nom }))} defaultValue={locataireInitial} invalide={!!e.locataireId} disabled={verrouille} />
-        </Field>
+
+        <fieldset className="sm:col-span-2">
+          <legend className="mb-1.5 block text-sm font-semibold text-navy-900">
+            {selectionnes.length > 1 ? "Locataires" : "Locataire"}<span className="ml-1 text-red-600">*</span>
+          </legend>
+          {locataires.length > 6 && !verrouille && (
+            <Input type="search" value={recherche} onChange={(ev) => setRecherche(ev.target.value)} placeholder="Rechercher un locataire…" aria-label="Rechercher un locataire" className="mb-2" />
+          )}
+          <div role="group" aria-label="Locataires titulaires du bail" className={`max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-lg border bg-white ${erreurLocataires ? "border-red-400" : "border-slate-300"}`}>
+            {locataires.length === 0 && <p className="px-3.5 py-3 text-sm text-slate-500">Aucun locataire enregistré : créez-le d'abord dans la rubrique Locataires.</p>}
+            {locataires.map((l) => {
+              const coche = selection.includes(l.id);
+              const visible = !rechercheNorm || normaliser(`${l.nom} ${l.detail ?? ""}`).includes(rechercheNorm);
+              return (
+                <label key={l.id} className={`flex items-center gap-3 px-3.5 py-2.5 ${verrouille ? "" : "cursor-pointer hover:bg-slate-50"} ${coche ? "bg-navy-50" : ""} ${visible ? "" : "hidden"}`}>
+                  <input type="checkbox" name="locataireIds" value={l.id} checked={coche} onChange={() => basculer(l.id)} disabled={verrouille} className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-navy-800 disabled:cursor-default" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-navy-900">{l.nom}</span>
+                    {l.detail && <span className="block truncate text-xs text-slate-500">{l.detail}</span>}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <p className={`mt-1.5 text-xs ${erreurLocataires ? "text-red-600" : "text-slate-500"}`}>{erreurLocataires ?? resumeLocataires}</p>
+        </fieldset>
 
         {type === "MOBILITE" && (
           <Field label="Motif du bail mobilité" name="motifMobilite" requis error={e.motifMobilite} className="sm:col-span-2" hint="Situation du locataire justifiant le recours au bail mobilité (art. 25-12 de la loi du 6 juillet 1989).">
@@ -201,10 +284,11 @@ export function BailForm({
             <fieldset className="sm:col-span-2">
               <legend className="mb-1.5 block text-sm font-semibold text-navy-900">Indice de référence</legend>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Select key={irlTrimestreInitial} name="irlTrimestre" aria-label="Trimestre de l'IRL de référence" vide="Trimestre…" options={trimestres} defaultValue={irlTrimestreInitial} invalide={!!e.irlTrimestre} />
-                <Input name="irlValeur" aria-label="Valeur de l'IRL de référence" inputMode="decimal" placeholder="Valeur, ex. : 145,17" defaultValue={valeurInitiale(state, "irlValeur", initial.irlValeur !== null && initial.irlValeur !== undefined ? String(initial.irlValeur).replace(".", ",") : "")} invalide={!!e.irlValeur} />
+                <Select name="irlTrimestre" aria-label="Trimestre de l'IRL de référence" vide="Trimestre…" options={trimestres} value={irlTrimestre} onChange={(ev) => changerTrimestreIRL(ev.target.value)} invalide={!!e.irlTrimestre} />
+                <Input name="irlValeur" aria-label="Valeur de l'IRL de référence" inputMode="decimal" placeholder="Valeur, ex. : 145,17" value={irlValeur} onChange={(ev) => setIrlValeur(ev.target.value)} invalide={!!e.irlValeur} />
               </div>
               {e.irlTrimestre || e.irlValeur ? <p className="mt-1.5 text-xs text-red-600">{e.irlTrimestre ?? e.irlValeur}</p> : <p className="mt-1.5 text-xs text-slate-500">Dernier IRL publié par l'INSEE à la signature : trimestre et valeur.</p>}
+              <StatutIndices etat={indices} libelle="IRL" onUtiliser={utiliserDernierIRL} className="mt-1" />
             </fieldset>
             <div className="sm:col-span-2">
               <Checkbox name="clauseRevision" label="Clause de révision annuelle du loyer (IRL)" hint="Le loyer pourra être révisé chaque année à la date anniversaire selon l'indice de référence des loyers" defaultChecked={state?.values ? state.values.clauseRevision === "on" : (initial.clauseRevision ?? true)} />

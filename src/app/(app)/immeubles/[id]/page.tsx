@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { CATEGORIES_DEPENSE, TYPES_LOT, adresseSurPlusieursLignes, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
+import { CATEGORIES_DEPENSE, TYPES_LOT, adresseSurPlusieursLignes, adresseSurUneLigne } from "@/lib/libelles";
 import { formatDate } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
 import { supprimerImmeuble } from "@/actions/immeubles";
@@ -10,6 +10,7 @@ import { Badge, Button, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeade
 import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 const pluriel = (n: number) => (n > 1 ? "s" : "");
 
@@ -20,7 +21,7 @@ export default async function ImmeublePage({ params, searchParams }: { params: P
     where: { id, entiteId: await entiteCouranteId() },
     include: {
       bailleur: true,
-      lots: { orderBy: { nom: "asc" }, include: { bailleur: true, baux: { where: { statut: "SIGNE" }, include: { locataire: true }, orderBy: { dateDebut: "desc" }, take: 1 } } },
+      lots: { orderBy: { nom: "asc" }, include: { bailleur: true, baux: { where: { statut: "SIGNE" }, include: { locataires: includeLocataires }, orderBy: { dateDebut: "desc" }, take: 1 } } },
       depenses: { orderBy: { date: "desc" }, take: 10 },
       emprunts: { orderBy: { libelle: "asc" } },
       _count: { select: { depenses: true } },
@@ -120,7 +121,7 @@ export default async function ImmeublePage({ params, searchParams }: { params: P
                         <Td className="text-slate-600">{l.etage ?? "—"}</Td>
                         <Td className="text-slate-600">{l.bailleur?.nom ?? <span className="text-slate-400">—</span>}</Td>
                         <Td droite className="font-semibold">{loyerCC === null ? <span className="font-normal text-slate-400">—</span> : bail ? formatEuros(loyerCC) : <span className="font-normal text-slate-500">{formatEuros(loyerCC)}</span>}</Td>
-                        <Td className="text-slate-600">{bail ? nomComplet(bail.locataire) : <span className="text-slate-400">—</span>}</Td>
+                        <Td className="text-slate-600">{bail ? nomsLocataires(bail.locataires) : <span className="text-slate-400">—</span>}</Td>
                         <Td>{bail ? <Badge ton="vert">Loué</Badge> : <Badge ton="orange">Vacant</Badge>}</Td>
                       </tr>
                     );

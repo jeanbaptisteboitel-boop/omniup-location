@@ -11,10 +11,10 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Location**
 - Locataires : nom, prénom, adresse, téléphone, email, et dossier de candidature : pièces d'identité, avis d'imposition, lettres de recommandation, justificatifs de domicile, justificatifs de revenus (PDF ou images).
-- Baux reliant un lot et un locataire : **non meublé**, **meublé** ou **bail mobilité**, avec les règles légales de chaque type (durée par défaut, plafond du dépôt de garantie, charges au forfait, motif du bail mobilité).
+- Baux reliant un lot et un ou plusieurs locataires (couple, colocation : titulaires solidaires, chacun destinataire des avis, quittances et courriers) : **non meublé**, **meublé** ou **bail mobilité**, avec les règles légales de chaque type (durée par défaut, plafond du dépôt de garantie, charges au forfait, motif du bail mobilité).
 - Cycle de vie : brouillon → en signature (Omniup Sign) → signé → terminé.
 - Contrat : rédaction manuelle ou par l'assistant IA, export PDF à faire signer.
-- Révision annuelle du loyer sur l'IRL avec historique, courrier de notification.
+- Révision annuelle du loyer sur l'IRL avec historique, courrier de notification ; le dernier IRL publié est récupéré automatiquement auprès de l'INSEE (service de données public, sans clé) et proposé à la signature comme à la révision.
 
 **Loyers**
 - Appels de loyer (avis d'échéance) émis automatiquement pour chaque bail signé, avec prorata temporis en début et fin de bail.
@@ -31,7 +31,9 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Entités** : par défaut une seule entité ; en activant la gestion multi-entités (Paramètres), une entreprise de gérance ou un cabinet gère plusieurs personnes et sociétés, chacune avec ses bailleurs, immeubles, lots, locataires, baux, dépenses, emprunts et documents, l'entité de travail se choisissant dans la barre latérale.
 
-**Calculatrices** : pourcentages de loyer et taux d'effort, révision de loyer par indice (IRL annuel, ILC/ILAT annuel ou triennal, plafond), rentabilité brute et nette avec cash-flow, frais de notaire, capacité d'emprunt, mensualité et coût d'un prêt, prêt in fine.
+**Indices INSEE** : les indices IRL, ILC, ILAT, ICC et BT01 sont lus chaque jour sur le service de données de l'INSEE (accès libre, sans clé), historisés en base depuis 2000 avec leur statut (provisoire ou définitif) et le journal des révisions, consultables (tableau, historique, courbe) et exposés par une API interne ; d'autres séries s'ajoutent sans redéploiement, leur idbank étant vérifié auprès de l'INSEE. Détails : `src/lib/insee/README.md`.
+
+**Calculatrices** : pourcentages de loyer et taux d'effort, révision de loyer par indice (IRL annuel, ILC/ILAT annuel ou triennal, plafond, derniers indices publiés par l'INSEE récupérés en un clic), rentabilité brute et nette avec cash-flow, frais de notaire, capacité d'emprunt, mensualité et coût d'un prêt, prêt in fine.
 
 **Assistant IA** (Anthropic Claude) : chatbot de conseil en gestion locative connaissant l'entité de travail, rédaction de tout courrier (enregistrable comme document), rédaction des contrats, courriers de révision ou de relance et emails d'accompagnement. **OCR et extraction** (Mistral) : lecture des échéanciers PDF ou photographiés.
 
@@ -61,6 +63,9 @@ Sans variables `SCW_*`, les fichiers importés sont écrits dans `storage/` ; sa
 | `AVIS_JOURS_AVANCE` | Nombre de jours avant le début du mois pour émettre l'avis d'échéance (10 par défaut). |
 | `AVIS_ENVOI_AUTO` | `true` pour envoyer automatiquement les avis émis par la tâche planifiée. |
 | `CRON_SECRET` | Secret protégeant `/api/cron/loyers`. |
+| `APP_URL` | Adresse publique de l'application (ex. `https://votre-app.vercel.app`, plusieurs adresses séparées par des virgules) : origine autorisée à envoyer les fichiers directement vers le bucket. |
+| `INSEE_URL` | Facultatif : base du service de données de l'INSEE (`https://bdm.insee.fr` par défaut), à changer seulement pour passer par un relais. |
+| `ALERTES_EMAIL` | Facultatif : adresse qui reçoit les alertes du module Indices INSEE (échecs répétés, série arrêtée ou rebasée, libellé modifié) quand l'envoi d'emails est configuré ; sinon les alertes restent visibles dans l'application. |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Assistant de rédaction (modèle `claude-opus-5` par défaut). |
 | `MISTRAL_API_KEY`, `MISTRAL_MODEL_OCR`, `MISTRAL_MODEL_EXTRACTION` | OCR et extraction des échéanciers PDF/images (`mistral-ocr-latest`, `mistral-medium-latest`). |
 | `OMNIUP_SIGN_URL`, `OMNIUP_SIGN_API_KEY` | Réservé à l'intégration Omniup Sign (à venir). |
@@ -70,8 +75,8 @@ La page **Paramètres** de l'application affiche l'état de chaque configuration
 ## Déploiement (Vercel + Neon + Scaleway)
 
 1. **Neon** : créez un projet PostgreSQL et récupérez les deux chaînes de connexion (pooled → `DATABASE_URL`, directe → `DIRECT_URL`).
-2. **Scaleway Object Storage** : créez un bucket privé (région `fr-par` par exemple) et une clé API ; renseignez `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`. Autorisez l'envoi direct depuis le navigateur avec `APP_URL=https://votre-app.vercel.app node scripts/configurer-cors.mjs`.
-3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_PASSWORD`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie l'émission des appels de loyer chaque jour à 6 h UTC via `/api/cron/loyers` (Vercel transmet `CRON_SECRET` automatiquement).
+2. **Scaleway Object Storage** : créez un bucket privé (région `fr-par` par exemple) et une clé API ; renseignez `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`. Autorisez l'envoi direct depuis le navigateur : une fois l'application déployée avec `APP_URL` renseignée, cliquez sur « Autoriser l'envoi direct » dans Paramètres (carte Stockage des fichiers), ou lancez `APP_URL=https://votre-app.vercel.app node scripts/configurer-cors.mjs`. Sans cette règle CORS, l'import d'un document échoue avec « Failed to fetch ».
+3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_PASSWORD`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie chaque jour l'émission des appels de loyer à 6 h UTC via `/api/cron/loyers` et la synchronisation des indices INSEE à 7 h 30 UTC (9 h 30 à Paris en heure d'été) via `/api/cron/indices` (Vercel transmet `CRON_SECRET` automatiquement).
 4. Les fonctions longues (rédaction IA, OCR, envois d'emails) déclarent `maxDuration = 300` ; si votre projet Vercel n'utilise pas Fluid compute, ramenez cette valeur à 60 dans les pages concernées.
 
 Limites Vercel à connaître : une requête ne peut pas dépasser 4,5 Mo, d'où l'envoi des documents directement vers Scaleway depuis le navigateur ; l'import d'un échéancier PDF par OCR est limité à 4 Mo (utilisez le CSV ou l'Excel de la banque au-delà).
@@ -88,7 +93,8 @@ Aujourd'hui, le contrat est téléchargé en PDF depuis la fiche du bail, signé
 
 ```bash
 npm run typecheck   # vérification TypeScript
-npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants)
+npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants, indices INSEE)
+node scripts/verifier-idbanks.mjs   # contrôle des idbanks INSEE par appel réel (libellé officiel, dernière valeur)
 npm run db:studio   # exploration de la base de données
 ```
 

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { entierParam, idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { TYPES_BAIL_COURT, nomComplet } from "@/lib/libelles";
+import { TYPES_BAIL_COURT } from "@/lib/libelles";
 import { formatDate } from "@/lib/dates";
 import { entiteCouranteId } from "@/lib/entite";
 import { genererDocument } from "@/actions/modeles";
 import { GenererForm } from "@/components/modeles/generer-form";
 import { Alerte, Card, CardBody, PageHeader } from "@/components/ui";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Générer un document" };
 
@@ -15,7 +16,7 @@ export default async function GenererPage({ params, searchParams }: { params: Pa
   const sp = await searchParams;
   const [m, baux] = await Promise.all([
     prisma.modeleDocument.findUnique({ where: { id } }),
-    prisma.bail.findMany({ where: { entiteId: await entiteCouranteId() }, include: { lot: true, locataire: true }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }] }),
+    prisma.bail.findMany({ where: { entiteId: await entiteCouranteId() }, include: { lot: true, locataires: includeLocataires }, orderBy: [{ statut: "asc" }, { dateDebut: "desc" }] }),
   ]);
   if (!m) notFound();
   const bailId = entierParam(sp, "bailId");
@@ -29,7 +30,7 @@ export default async function GenererPage({ params, searchParams }: { params: Pa
         <CardBody>
           <GenererForm
             action={genererDocument.bind(null, m.id)}
-            baux={baux.map((b) => ({ id: b.id, libelle: `${b.lot.nom} — ${nomComplet(b.locataire)} (${TYPES_BAIL_COURT[b.type].toLowerCase()}, du ${formatDate(b.dateDebut)})` }))}
+            baux={baux.map((b) => ({ id: b.id, libelle: `${b.lot.nom} — ${nomsLocataires(b.locataires)} (${TYPES_BAIL_COURT[b.type].toLowerCase()}, du ${formatDate(b.dateDebut)})` }))}
             bailIdInitial={bailId}
             titreInitial={m.nom}
             annulerHref={bailId ? `/baux/${bailId}` : "/modeles"}

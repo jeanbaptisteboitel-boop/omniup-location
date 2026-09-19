@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { CATEGORIES_DEPENSE, TYPES_BAIL_COURT, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
+import { CATEGORIES_DEPENSE, TYPES_BAIL_COURT, TYPES_LOT, TYPES_PERSONNE, adresseSurUneLigne } from "@/lib/libelles";
 import { formatDate } from "@/lib/dates";
 import { formatEuros, somme } from "@/lib/montants";
 import { formatSurface } from "@/components/patrimoine/surface";
@@ -12,6 +12,7 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export default async function LotPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
@@ -21,7 +22,7 @@ export default async function LotPage({ params, searchParams }: { params: Params
     include: {
       bailleur: true,
       immeuble: true,
-      baux: { orderBy: { dateDebut: "desc" }, include: { locataire: true } },
+      baux: { orderBy: { dateDebut: "desc" }, include: { locataires: includeLocataires } },
       depenses: { orderBy: { date: "desc" }, take: 10 },
       emprunts: { orderBy: { libelle: "asc" } },
       _count: { select: { depenses: true } },
@@ -82,7 +83,7 @@ export default async function LotPage({ params, searchParams }: { params: Params
               {bailActif ? (
                 <Link href={`/baux/${bailActif.id}`} className="flex items-center justify-between gap-3 px-5 py-4 text-slate-900 hover:bg-slate-50">
                   <span className="min-w-0">
-                    <span className="block font-semibold text-navy-900">{nomComplet(bailActif.locataire)}</span>
+                    <span className="block font-semibold text-navy-900">{nomsLocataires(bailActif.locataires)}</span>
                     <span className="block text-[13px] text-slate-500">
                       {TYPES_BAIL_COURT[bailActif.type]} · du {formatDate(bailActif.dateDebut)} au {formatDate(bailActif.dateFinEffective ?? bailActif.dateFin)}
                     </span>
@@ -143,7 +144,7 @@ export default async function LotPage({ params, searchParams }: { params: Params
               <tbody className="divide-y divide-slate-100">
                 {lot.baux.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50">
-                    <Td><Link href={`/baux/${b.id}`} className="whitespace-nowrap font-semibold text-navy-900 hover:underline">{nomComplet(b.locataire)}</Link></Td>
+                    <Td><Link href={`/baux/${b.id}`} className="whitespace-nowrap font-semibold text-navy-900 hover:underline">{nomsLocataires(b.locataires)}</Link></Td>
                     <Td className="text-slate-600">{TYPES_BAIL_COURT[b.type]}</Td>
                     <Td className="text-slate-600 tabular-nums">{formatDate(b.dateDebut)}</Td>
                     <Td className="text-slate-600 tabular-nums">{formatDate(b.dateFinEffective ?? b.dateFin)}</Td>

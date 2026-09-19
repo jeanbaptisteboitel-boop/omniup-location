@@ -15,6 +15,7 @@ import { pdfAvisEcheance, pdfQuittance } from "@/lib/pdf/loyers";
 import { envoyerEmail, mailConfigure } from "@/lib/mail";
 import { emailAvis, emailQuittance } from "@/lib/mail-modeles";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires } from "@/lib/locataires";
 
 /** Appel de loyer de l'entité de travail, sinon null. */
 async function appelDeLEntite(id: number): Promise<AppelComplet | null> {
@@ -98,8 +99,8 @@ export async function supprimerPaiement(fd: FormData): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function envoyerAvisInterne(appel: AppelComplet, objet?: string, corps?: string): Promise<void> {
-  const email = appel.bail.locataire.email;
-  if (!email) throw new Error("Le locataire n'a pas d'adresse email.");
+  const email = emailsLocataires(appel.bail.locataires);
+  if (!email.length) throw new Error("Aucun locataire n'a d'adresse email.");
   const modele = emailAvis(appel);
   const pdf = await pdfAvisEcheance(appel);
   await envoyerEmail({
@@ -113,8 +114,8 @@ async function envoyerAvisInterne(appel: AppelComplet, objet?: string, corps?: s
 }
 
 async function envoyerQuittanceInterne(appel: AppelComplet, objet?: string, corps?: string): Promise<void> {
-  const email = appel.bail.locataire.email;
-  if (!email) throw new Error("Le locataire n'a pas d'adresse email.");
+  const email = emailsLocataires(appel.bail.locataires);
+  if (!email.length) throw new Error("Aucun locataire n'a d'adresse email.");
   const integral = etatAppel(appel, aujourdhui()).statut === "PAYE";
   const modele = emailQuittance(appel, integral);
   const pdf = await pdfQuittance(appel);
@@ -137,7 +138,7 @@ export async function envoyerAvis(appelId: number, _prev: FormState, fd: FormDat
     return erreur(fd, messageErreur(e));
   }
   revalider(appel);
-  return succes(`Avis d'échéance envoyé à ${appel.bail.locataire.email}.`);
+  return succes(`Avis d'échéance envoyé à ${emailsLocataires(appel.bail.locataires).join(", ")}.`);
 }
 
 export async function envoyerQuittance(appelId: number, _prev: FormState, fd: FormData): Promise<FormState> {
@@ -150,7 +151,7 @@ export async function envoyerQuittance(appelId: number, _prev: FormState, fd: Fo
     return erreur(fd, messageErreur(e));
   }
   revalider(appel);
-  return succes(`Quittance envoyée à ${appel.bail.locataire.email}.`);
+  return succes(`Quittance envoyée à ${emailsLocataires(appel.bail.locataires).join(", ")}.`);
 }
 
 export async function marquerAvisEnvoye(fd: FormData): Promise<void> {
@@ -174,7 +175,7 @@ export async function marquerQuittanceEnvoyee(fd: FormData): Promise<void> {
 /** Envoi groupé de tous les avis non encore envoyés (locataires avec email). */
 export async function envoyerAvisEnAttente(): Promise<void> {
   if (!mailConfigure()) redirect(avecMessage("/loyers", "L'envoi d'emails n'est pas configuré (voir Paramètres).", "erreur"));
-  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { entiteId: await entiteCouranteId(), locataire: { email: { not: null } } } }, include: includeAppel, orderBy: { periode: "asc" } });
+  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { entiteId: await entiteCouranteId(), locataires: { some: { email: { not: null } } } } }, include: includeAppel, orderBy: { periode: "asc" } });
   let envoyes = 0;
   const erreurs: string[] = [];
   for (const a of appels) {
@@ -192,7 +193,7 @@ export async function envoyerAvisEnAttente(): Promise<void> {
 
 /** Utilisé par la génération planifiée (cron). */
 export async function envoyerAvisNonEnvoyesSilencieux(): Promise<{ envoyes: number; erreurs: string[] }> {
-  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { locataire: { email: { not: null } } } }, include: includeAppel, orderBy: { periode: "asc" } });
+  const appels = await prisma.appelLoyer.findMany({ where: { dateEnvoiAvis: null, bail: { locataires: { some: { email: { not: null } } } } }, include: includeAppel, orderBy: { periode: "asc" } });
   let envoyes = 0;
   const erreurs: string[] = [];
   for (const a of appels) {

@@ -34,9 +34,10 @@ export default async function NouveauBailPage({ searchParams }: { searchParams: 
         <CardBody>
           <BailForm
             action={creerBail}
-            initial={{ lotId: lotId ?? undefined, locataireId: locataireId ?? undefined, type: lotChoisi?.meuble ? "MEUBLE" : "NON_MEUBLE", loyerHC: lotChoisi?.loyerIndicatif ?? undefined, charges: lotChoisi?.chargesIndicatives ?? undefined }}
+            initial={{ lotId: lotId ?? undefined, type: lotChoisi?.meuble ? "MEUBLE" : "NON_MEUBLE", loyerHC: lotChoisi?.loyerIndicatif ?? undefined, charges: lotChoisi?.chargesIndicatives ?? undefined }}
+            locataireIdsInitiaux={locataireId && locataires.some((l) => l.id === locataireId) ? [locataireId] : []}
             lots={lots.map((l) => ({ id: l.id, nom: l.nom, adresse: l.adresse, codePostal: l.codePostal, ville: l.ville, meuble: l.meuble, bailleurPersonneMorale: l.bailleur?.typePersonne === "MORALE", loyerIndicatif: l.loyerIndicatif, chargesIndicatives: l.chargesIndicatives }))}
-            locataires={locataires.map((l) => ({ id: l.id, nom: nomComplet(l) }))}
+            locataires={locataires.map((l) => ({ id: l.id, nom: nomComplet(l), detail: [l.email, l.ville].filter(Boolean).join(" · ") || null }))}
             annulerHref="/baux"
             libelleEnvoi="Créer le bail"
           />

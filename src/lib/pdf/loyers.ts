@@ -1,7 +1,8 @@
 import "server-only";
 import { aujourdhui, formatDate, formatDateLongue, formatPeriode } from "../dates";
 import { formatEuros, montantEnLettres } from "../montants";
-import { MODES_PAIEMENT, TYPES_LOT, adresseSurUneLigne, nomComplet } from "../libelles";
+import { MODES_PAIEMENT, TYPES_LOT, adresseSurUneLigne } from "../libelles";
+import { nomsLocataires } from "../locataires";
 import { etatAppel, numeroAppel, numeroQuittance } from "../loyers";
 import type { AppelComplet } from "./donnees";
 import { GRIS, blocDestinataire, enTete, finaliser, lignesBailleur, lignesLocataire, nouveauDocument, paragraphe, tableauCles, tableauMontants, titreSection } from "./base";
@@ -16,13 +17,13 @@ export async function pdfAvisEcheance(appel: AppelComplet): Promise<Buffer> {
   const bailleur = bail.lot.bailleur;
   const { doc, fini } = nouveauDocument(`Avis d'échéance ${numeroAppel(appel.id)}`);
   enTete(doc, lignesBailleur(bailleur), "AVIS D'ÉCHÉANCE", [`N° ${numeroAppel(appel.id)}`, `Émis le ${formatDate(appel.dateEmission)}`, `Période : ${formatPeriode(appel.periode)}`]);
-  blocDestinataire(doc, lignesLocataire(bail.locataire, bail.lot));
+  blocDestinataire(doc, lignesLocataire(bail.locataires, bail.lot));
 
   titreSection(doc, "Logement");
   tableauCles(doc, [
     ["Désignation", `${bail.lot.nom} (${TYPES_LOT[bail.lot.type].toLowerCase()}${bail.lot.meuble ? " meublé" : ""})`],
     ["Adresse", adresseSurUneLigne(bail.lot)],
-    ["Locataire", nomComplet(bail.locataire)],
+    [bail.locataires.length > 1 ? "Locataires" : "Locataire", nomsLocataires(bail.locataires)],
   ]);
 
   titreSection(doc, "Échéance");
@@ -62,7 +63,9 @@ export async function pdfQuittance(appel: AppelComplet): Promise<Buffer> {
 
   const { doc, fini } = nouveauDocument(`${titre} ${numero}`);
   enTete(doc, lignesBailleur(bailleur), titre, [`N° ${numero}`, `Période : ${formatPeriode(appel.periode)}`, `Établie le ${formatDate(dateDoc)}`]);
-  blocDestinataire(doc, lignesLocataire(bail.locataire, bail.lot));
+  blocDestinataire(doc, lignesLocataire(bail.locataires, bail.lot));
+  const locataires = nomsLocataires(bail.locataires);
+  const pronom = bail.locataires.length > 1 ? "leur" : "lui";
 
   const qui = bailleur
     ? bailleur.typePersonne === "MORALE"
@@ -75,13 +78,13 @@ export async function pdfQuittance(appel: AppelComplet): Promise<Buffer> {
   if (integral) {
     paragraphe(
       doc,
-      `${qui} ${logement}, déclare avoir reçu de ${nomComplet(bail.locataire)} la somme de ${montantEnLettres(etat.regle)} (${formatEuros(etat.regle)}) au titre du paiement du loyer et des charges ${periode}, et lui en donne quittance, sous réserve de tous mes droits.`,
+      `${qui} ${logement}, déclare avoir reçu de ${locataires} la somme de ${montantEnLettres(etat.regle)} (${formatEuros(etat.regle)}) au titre du paiement du loyer et des charges ${periode}, et ${pronom} en donne quittance, sous réserve de tous mes droits.`,
       { align: "justify" },
     );
   } else {
     paragraphe(
       doc,
-      `${qui} ${logement}, déclare avoir reçu de ${nomComplet(bail.locataire)} la somme de ${montantEnLettres(etat.regle)} (${formatEuros(etat.regle)}) en règlement partiel du loyer et des charges ${periode}. Il reste dû la somme de ${formatEuros(etat.reste)}. Le présent reçu ne vaut pas quittance.`,
+      `${qui} ${logement}, déclare avoir reçu de ${locataires} la somme de ${montantEnLettres(etat.regle)} (${formatEuros(etat.regle)}) en règlement partiel du loyer et des charges ${periode}. Il reste dû la somme de ${formatEuros(etat.reste)}. Le présent reçu ne vaut pas quittance.`,
       { align: "justify" },
     );
   }

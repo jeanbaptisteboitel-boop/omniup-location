@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { INDICES, appliquerPourcentage, capaciteEmprunt, coutCredit, fraisNotaire, loyerMaximal, mensualite, partEnPourcentage, pretInFine, rentabilite, revisionLoyerIndice, tauxEffort, variationPourcentage, type CodeIndice } from "@/lib/calculs";
 import { arrondir2, formatEuros, formatNombre, parseMontant } from "@/lib/montants";
-import { Card, CardHeader } from "@/components/ui";
+import { Button, Card, CardHeader } from "@/components/ui";
+import { dernierIndice, formatIndice, trimestrePlus, valeurTrimestre } from "@/lib/insee/utils";
+import { StatutIndices, TableauIndices } from "@/components/indices/statut-indices";
+import { useIndicesINSEE } from "@/components/indices/use-indices";
 
 /* ------------------------------------------------------------------ */
 /* Briques d'affichage                                                 */
@@ -186,6 +189,17 @@ function Revision() {
   const [ancien, setAncien] = useState("145,17");
   const [nouveau, setNouveau] = useState("147,10");
   const [plafond, setPlafond] = useState("");
+  // Indices INSEE chargés à la demande : dernier indice publié et indice de référence (un ou trois ans plus tôt).
+  const [demande, setDemande] = useState(false);
+  const indices = useIndicesINSEE(indice, demande);
+  useEffect(() => {
+    if (indices.statut !== "ok" || !indices.serie) return;
+    const d = dernierIndice(indices.serie);
+    if (!d) return;
+    setNouveau(formatIndice(d.valeur));
+    const ref = valeurTrimestre(indices.serie, trimestrePlus(d.trimestre, periodicite === "annuelle" ? -1 : -3));
+    setAncien(ref ? formatIndice(ref.valeur) : "");
+  }, [indices, periodicite]);
   const info = INDICES.find((i) => i.code === indice)!;
   const r = revisionLoyerIndice(n(loyer), n(ancien), n(nouveau), plafond.trim() === "" ? null : n(plafond));
   const regle =
@@ -215,6 +229,19 @@ function Revision() {
           <Champ id="plafond" label="Plafond de hausse" valeur={plafond} onChange={setPlafond} unite="% · facultatif" aide="Ex. : 3,5 % (bouclier IRL 2022-2024) ou plafond contractuel." />
           <Champ id="ancien" label={periodicite === "annuelle" ? "Indice de référence (il y a un an)" : "Indice de référence (il y a trois ans)"} valeur={ancien} onChange={setAncien} />
           <Champ id="nouveau" label="Nouvel indice (même trimestre)" valeur={nouveau} onChange={setNouveau} />
+          <div className="col-span-full">
+            {demande ? (
+              <>
+                <StatutIndices etat={indices} libelle={indice} className="" />
+                <TableauIndices etat={indices} />
+              </>
+            ) : (
+              <>
+                <Button type="button" variante="secondary" taille="sm" onClick={() => setDemande(true)}>Récupérer les derniers indices publiés par l'INSEE</Button>
+                <p className="mt-1.5 text-xs text-slate-500">Remplit le nouvel indice et l'indice de référence avec les valeurs officielles (service de données de l'INSEE).</p>
+              </>
+            )}
+          </div>
         </>
       }
       tuiles={[

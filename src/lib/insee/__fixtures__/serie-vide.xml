@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<message:StructureSpecificData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message">
+  <message:Header><message:ID>SERIES_BDM_000000000</message:ID></message:Header>
+  <message:DataSet structureRef="FR1_SERIES_BDM">
+    <Series IDBANK="000000000" FREQ="A" TITLE_FR="Série sans observation" UNIT_MEASURE="SO"/>
+  </message:DataSet>
+</message:StructureSpecificData>

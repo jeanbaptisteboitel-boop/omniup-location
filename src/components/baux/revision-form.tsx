@@ -1,13 +1,19 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { FormState } from "@/lib/forms";
 import { calculerLoyerRevise, trimestresIRL, variationIRL } from "@/lib/irl";
+import { dernierIndice, formatIndice, trimestrePlus, valeurTrimestre } from "@/lib/insee/utils";
 import { formatEuros, formatNombre, parseMontant } from "@/lib/montants";
 import { Field, FormMessage, Input, Select, SubmitButton, valeurInitiale } from "@/components/form";
 import { ButtonLink } from "@/components/ui";
+import { StatutIndices } from "@/components/indices/statut-indices";
+import { useIndicesINSEE } from "@/components/indices/use-indices";
 
-/** Révision annuelle du loyer sur l'IRL, présentée comme la boîte de dialogue de la maquette (en-tête, grille, encadré du résultat, pied). */
+/**
+ * Révision annuelle du loyer sur l'IRL, présentée comme la boîte de dialogue de la maquette (en-tête, grille, encadré du résultat, pied).
+ * Le dernier IRL publié par l'INSEE est proposé automatiquement comme nouvel indice.
+ */
 export function RevisionForm({
   action,
   loyerActuel,
@@ -25,12 +31,52 @@ export function RevisionForm({
 }) {
   const [state, formAction] = useActionState(action, null);
   const e = state?.errors ?? {};
+  const indices = useIndicesINSEE("IRL");
+  const [ancienTrimestre, setAncienTrimestre] = useState(valeurInitiale(state, "irlAncienTrimestre", irlTrimestre));
   const [ancien, setAncien] = useState(valeurInitiale(state, "irlAncienValeur", irlValeur !== null ? String(irlValeur).replace(".", ",") : ""));
+  const [nouveauTrimestre, setNouveauTrimestre] = useState(valeurInitiale(state, "irlNouveauTrimestre", ""));
   const [nouveau, setNouveau] = useState(valeurInitiale(state, "irlNouveauValeur", ""));
+
+  useEffect(() => {
+    if (indices.statut !== "ok" || !indices.serie) return;
+    const serie = indices.serie;
+    const dernier = dernierIndice(serie);
+    if (!dernier) return;
+    if (!nouveauTrimestre && !nouveau.trim()) {
+      // Nouvel indice : le dernier publié ; indice de référence : le même trimestre un an plus tôt si le bail n'en a pas.
+      setNouveauTrimestre(dernier.trimestre);
+      setNouveau(formatIndice(dernier.valeur));
+      if (!ancienTrimestre && !ancien.trim()) {
+        const ref = valeurTrimestre(serie, trimestrePlus(dernier.trimestre, -1));
+        if (ref) {
+          setAncienTrimestre(ref.trimestre);
+          setAncien(formatIndice(ref.valeur));
+        }
+      }
+    } else if (ancienTrimestre && !ancien.trim()) {
+      const ref = valeurTrimestre(serie, ancienTrimestre);
+      if (ref) setAncien(formatIndice(ref.valeur));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indices]);
+
+  function changerAncienTrimestre(t: string) {
+    setAncienTrimestre(t);
+    const o = indices.serie ? valeurTrimestre(indices.serie, t) : null;
+    if (o) setAncien(formatIndice(o.valeur));
+  }
+  function changerNouveauTrimestre(t: string) {
+    setNouveauTrimestre(t);
+    const o = indices.serie ? valeurTrimestre(indices.serie, t) : null;
+    if (o) setNouveau(formatIndice(o.valeur));
+  }
+  function utiliserDernier() {
+    const d = indices.serie ? dernierIndice(indices.serie) : null;
+    if (d) changerNouveauTrimestre(d.trimestre);
+  }
+
   const trimestres = trimestresIRL(new Date().getFullYear()).map((t) => ({ value: t, label: t }));
-  // Après une erreur serveur, React réinitialise le formulaire : les <select> sont remontés (key) sur la valeur re-soumise.
-  const ancienTrimestre = valeurInitiale(state, "irlAncienTrimestre", irlTrimestre);
-  const nouveauTrimestre = valeurInitiale(state, "irlNouveauTrimestre", "");
+  for (const t of [ancienTrimestre, nouveauTrimestre]) if (t && !trimestres.some((x) => x.value === t)) trimestres.unshift({ value: t, label: t });
 
   const a = parseMontant(ancien);
   const n = parseMontant(nouveau);
@@ -53,18 +99,19 @@ export function RevisionForm({
             <Input name="loyerActuel" value={formatEuros(loyerActuel)} readOnly disabled className="tabular-nums" />
           </Field>
           <Field label="Trimestre de référence" name="irlAncienTrimestre" error={e.irlAncienTrimestre}>
-            <Select key={ancienTrimestre} name="irlAncienTrimestre" vide="—" options={trimestres} defaultValue={ancienTrimestre} invalide={!!e.irlAncienTrimestre} />
+            <Select name="irlAncienTrimestre" vide="—" options={trimestres} value={ancienTrimestre} onChange={(ev) => changerAncienTrimestre(ev.target.value)} invalide={!!e.irlAncienTrimestre} />
           </Field>
           <Field label="Indice de référence" name="irlAncienValeur" requis error={e.irlAncienValeur} hint="IRL en vigueur à la signature ou lors de la dernière révision.">
             <Input name="irlAncienValeur" inputMode="decimal" value={ancien} onChange={(ev) => setAncien(ev.target.value)} invalide={!!e.irlAncienValeur} placeholder="ex. : 145,17" />
           </Field>
           <Field label="Trimestre du nouvel indice" name="irlNouveauTrimestre" error={e.irlNouveauTrimestre} hint="Même trimestre, un an plus tard.">
-            <Select key={nouveauTrimestre} name="irlNouveauTrimestre" vide="—" options={trimestres} defaultValue={nouveauTrimestre} invalide={!!e.irlNouveauTrimestre} />
+            <Select name="irlNouveauTrimestre" vide="—" options={trimestres} value={nouveauTrimestre} onChange={(ev) => changerNouveauTrimestre(ev.target.value)} invalide={!!e.irlNouveauTrimestre} />
           </Field>
-          <Field label="Nouvel indice" name="irlNouveauValeur" requis error={e.irlNouveauValeur} hint="Dernier IRL publié par l'INSEE (insee.fr).">
+          <Field label="Nouvel indice" name="irlNouveauValeur" requis error={e.irlNouveauValeur} hint="Dernier IRL publié par l'INSEE, rempli automatiquement quand il est disponible.">
             <Input name="irlNouveauValeur" inputMode="decimal" value={nouveau} onChange={(ev) => setNouveau(ev.target.value)} invalide={!!e.irlNouveauValeur} placeholder="ex. : 147,10" />
           </Field>
         </div>
+        <StatutIndices etat={indices} libelle="IRL" onUtiliser={utiliserDernier} className="" />
         <div className="flex items-center justify-between gap-3 rounded-lg border border-navy-200 bg-navy-50 px-3.5 py-3">
           <span className="text-sm text-navy-800">Nouveau loyer hors charges</span>
           <span className="text-xl font-bold text-navy-900 tabular-nums">{calcul ? formatEuros(calcul.loyer) : "—"}</span>

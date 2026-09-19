@@ -12,6 +12,7 @@ import { pdfDocumentGenere } from "@/lib/pdf/documents";
 import { envoyerEmail } from "@/lib/mail";
 import { rediger } from "@/lib/ia";
 import { ficheBail } from "@/lib/ia-contexte";
+import { emailsLocataires, includeLocataires } from "@/lib/locataires";
 
 const schemaDocument = z.object({
   titre: zTexte(200),
@@ -21,7 +22,7 @@ const schemaDocument = z.object({
 });
 
 async function documentDeLEntite(id: number) {
-  return prisma.documentGenere.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { bail: { include: { lot: { include: { bailleur: true } }, locataire: true } } } });
+  return prisma.documentGenere.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { bail: { include: { lot: { include: { bailleur: true } }, locataires: includeLocataires } } } });
 }
 
 function revalider(d: { id: number; bailId: number | null }) {
@@ -55,8 +56,8 @@ export async function supprimerDocumentGenere(fd: FormData): Promise<void> {
 export async function envoyerDocumentGenere(id: number, _prev: FormState, fd: FormData): Promise<FormState> {
   const d = await documentDeLEntite(id);
   if (!d) return erreur(fd, "Document introuvable.");
-  const email = d.bail?.locataire.email;
-  if (!email) return erreur(fd, d.bail ? "Le locataire n'a pas d'adresse email." : "Rattachez le document à un bail pour l'envoyer au locataire.");
+  const email = d.bail ? emailsLocataires(d.bail.locataires) : [];
+  if (!email.length) return erreur(fd, d.bail ? "Aucun locataire n'a d'adresse email." : "Rattachez le document à un bail pour l'envoyer au locataire.");
   try {
     const pdf = await pdfDocumentGenere(d);
     await envoyerEmail({
@@ -71,7 +72,7 @@ export async function envoyerDocumentGenere(id: number, _prev: FormState, fd: Fo
   }
   await prisma.documentGenere.update({ where: { id }, data: { dateEnvoi: new Date() } });
   revalider(d);
-  return succes(`Document envoyé à ${email}.`);
+  return succes(`Document envoyé à ${email.join(", ")}.`);
 }
 
 /** Adapte ou complète le document avec l'assistant de rédaction, selon les instructions données. */

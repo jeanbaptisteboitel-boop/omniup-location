@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { nomComplet } from "@/lib/libelles";
 import { iaConfiguree } from "@/lib/ia-config";
 import { mailConfigure } from "@/lib/mail";
 import { emailContrat } from "@/lib/mail-modeles";
@@ -16,6 +15,7 @@ import { EnvoiEmail } from "@/components/envoi-email";
 import { ContratEditeur } from "@/components/baux/contrat-editeur";
 import { STATUTS_BAIL_COURT } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires, includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 export const metadata = { title: "Contrat de bail" };
 
@@ -24,7 +24,7 @@ export default async function ContratPage({ params, searchParams }: { params: Pa
   const sp = await searchParams;
   await initialiserModelesDefaut();
   const modelesBaux = await prisma.modeleDocument.findMany({ where: { categorie: "BAIL" }, orderBy: { nom: "asc" }, select: { id: true, nom: true } });
-  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataire: true } });
+  const b = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() }, include: { lot: { include: { bailleur: true } }, locataires: includeLocataires } });
   if (!b) notFound();
   const modele = emailContrat(b);
   const modeleParDefaut = modelesBaux.find((m) => (b.type === "MEUBLE" && m.nom.toLowerCase().includes("meublé")) || (b.type === "MOBILITE" && m.nom.toLowerCase().includes("mobilité")) || (b.type === "NON_MEUBLE" && m.nom.toLowerCase().includes("logement vide")));
@@ -33,7 +33,7 @@ export default async function ContratPage({ params, searchParams }: { params: Pa
     <>
       <PageHeader
         titre="Contrat de bail"
-        sousTitre={`${b.lot.nom} · ${nomComplet(b.locataire)} · ${STATUTS_BAIL_COURT[b.statut]}. Rédigez ou générez le texte, enregistrez-le, puis téléchargez le PDF à faire signer dans Omniup Sign.`}
+        sousTitre={`${b.lot.nom} · ${nomsLocataires(b.locataires)} · ${STATUTS_BAIL_COURT[b.statut]}. Rédigez ou générez le texte, enregistrez-le, puis téléchargez le PDF à faire signer dans Omniup Sign.`}
         retour={{ href: `/baux/${b.id}`, libelle: "Bail" }}
         actions={b.texteContrat ? <ButtonLink href={pdfHref} variante="secondary" target="_blank">Télécharger le PDF</ButtonLink> : undefined}
       />
@@ -69,7 +69,7 @@ export default async function ContratPage({ params, searchParams }: { params: Pa
               <EnvoiEmail
                 action={envoyerContrat.bind(null, b.id)}
                 actionIA={genererEmail.bind(null, b.id)}
-                destinataire={b.locataire.email}
+                destinataire={emailsLocataires(b.locataires).join(", ") || null}
                 objetDefaut={modele.objet}
                 corpsDefaut={modele.corps}
                 contexteIA="Envoi du projet de contrat de location en PDF pour relecture avant signature électronique."

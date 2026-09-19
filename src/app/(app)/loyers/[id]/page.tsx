@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { idDepuis, type ParamsId, type SearchParams } from "@/lib/params";
-import { MODES_PAIEMENT, TYPES_BAIL_COURT, nomComplet } from "@/lib/libelles";
+import { MODES_PAIEMENT, TYPES_BAIL_COURT } from "@/lib/libelles";
 import { aujourdhui, formatDate, formatDateHeure, formatPeriode, toISODate } from "@/lib/dates";
 import { formatEuros } from "@/lib/montants";
 import { etatAppel, numeroAppel, numeroQuittance } from "@/lib/loyers";
@@ -21,6 +21,8 @@ import { EtatAvis, EtatQuittance } from "@/components/loyers/etat-envoi";
 import { PaiementForm } from "@/components/loyers/paiement-form";
 import { EnvoiEmail } from "@/components/envoi-email";
 import { entiteCouranteId } from "@/lib/entite";
+import { emailsLocataires } from "@/lib/locataires";
+import { LiensLocataires } from "@/components/locataires/liens-locataires";
 
 const LIGNE = "px-5 py-2.5 text-slate-600";
 const MONTANT = "px-5 py-2.5 text-right tabular-nums";
@@ -41,7 +43,9 @@ export default async function AppelPage({ params, searchParams }: { params: Para
   const ia = iaConfiguree();
   const finBail = bail.dateFinEffective ?? bail.dateFin;
   // Sans email configuré (ou sans adresse du locataire), le bloc d'envoi n'affiche qu'une alerte : on ne la répète pas pour la quittance.
-  const envoiPossible = smtp && !!bail.locataire.email;
+  const emails = emailsLocataires(bail.locataires);
+  const destinataire = emails.join(", ") || null;
+  const envoiPossible = smtp && emails.length > 0;
   const blocQuittance = a.paiements.length > 0 && envoiPossible;
   const cibleEnvoi = integral && blocQuittance ? "envoi-quittance" : "envoi-avis";
 
@@ -53,7 +57,7 @@ export default async function AppelPage({ params, searchParams }: { params: Para
         badge={<BadgeStatutAppel statut={etat.statut} />}
         sousTitre={
           <>
-            {bail.lot.nom} · <Link href={`/locataires/${bail.locataire.id}`} className="hover:text-navy-800 hover:underline">{nomComplet(bail.locataire)}</Link> · échéance le {formatDate(a.dateEcheance)}
+            {bail.lot.nom} · <LiensLocataires locataires={bail.locataires} className="hover:text-navy-800 hover:underline" /> · échéance le {formatDate(a.dateEcheance)}
           </>
         }
         actions={
@@ -209,8 +213,8 @@ export default async function AppelPage({ params, searchParams }: { params: Para
                 <p className="font-bold">Loyer intégralement réglé</p>
                 <p className="mt-1">
                   {a.dateEnvoiQuittance
-                    ? `Quittance ${numeroQuittance(a.id)} envoyée le ${formatDateHeure(a.dateEnvoiQuittance)}${bail.locataire.email ? ` à ${bail.locataire.email}` : ""}.`
-                    : `Vous pouvez générer la quittance ${numeroQuittance(a.id)} et l'envoyer au locataire.`}
+                    ? `Quittance ${numeroQuittance(a.id)} envoyée le ${formatDateHeure(a.dateEnvoiQuittance)}${destinataire ? ` à ${destinataire}` : ""}.`
+                    : `Vous pouvez générer la quittance ${numeroQuittance(a.id)} et l'envoyer ${bail.locataires.length > 1 ? "aux locataires" : "au locataire"}.`}
                 </p>
                 {!a.dateEnvoiQuittance && (
                   <BoutonEnvoi cible={cibleEnvoi} className="mt-2.5 inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-emerald-800 px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-900 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan">Générer et envoyer la quittance</BoutonEnvoi>
@@ -220,7 +224,7 @@ export default async function AppelPage({ params, searchParams }: { params: Para
           ) : (
             <Card>
               <CardHeader titre="Enregistrer un paiement" />
-              <PaiementForm action={enregistrerPaiement.bind(null, a.id)} dateDefaut={toISODate(auj)} reste={etat.reste} proposerQuittance={smtp && !!bail.locataire.email} />
+              <PaiementForm action={enregistrerPaiement.bind(null, a.id)} dateDefaut={toISODate(auj)} reste={etat.reste} proposerQuittance={envoiPossible} />
             </Card>
           )}
         </div>
@@ -232,7 +236,7 @@ export default async function AppelPage({ params, searchParams }: { params: Para
           <EnvoiEmail
             action={envoyerAvis.bind(null, a.id)}
             actionIA={genererEmail.bind(null, bail.id)}
-            destinataire={bail.locataire.email}
+            destinataire={destinataire}
             objetDefaut={modeleAvis.objet}
             corpsDefaut={modeleAvis.corps}
             contexteIA={`Envoi de l'avis d'échéance ${numeroAppel(a.id)} pour ${formatPeriode(a.periode)} : ${formatEuros(a.total)} à payer avant le ${formatDate(a.dateEcheance)}.`}
@@ -248,7 +252,7 @@ export default async function AppelPage({ params, searchParams }: { params: Para
             <EnvoiEmail
               action={envoyerQuittance.bind(null, a.id)}
               actionIA={genererEmail.bind(null, bail.id)}
-              destinataire={bail.locataire.email}
+              destinataire={destinataire}
               objetDefaut={modeleQuittance.objet}
               corpsDefaut={modeleQuittance.corps}
               contexteIA={`Envoi de la ${integral ? "quittance" : "reçu de paiement partiel"} pour ${formatPeriode(a.periode)} (${formatEuros(etat.regle)} reçus).`}

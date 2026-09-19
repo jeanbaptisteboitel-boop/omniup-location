@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<message:StructureSpecificData xmlns:message="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/message" xmlns:common="http://www.sdmx.org/resources/sdmxml/schemas/v2_1/common">
+  <message:Header>
+    <message:ID>SERIES_BDM_001710986</message:ID>
+    <message:Prepared>2026-09-19T10:00:00</message:Prepared>
+  </message:Header>
+  <message:DataSet structureRef="FR1_SERIES_BDM">
+    <Series IDBANK="001710986" FREQ="M" TITLE_FR="Index bâtiment - BT01 - Tous corps d'état - Base 100 en 2010" LAST_UPDATE="2026-09-15" UNIT_MEASURE="SO" DECIMALS="1" BASE_PER="2010">
+      <Obs TIME_PERIOD="2026-06" OBS_VALUE="134.2" OBS_STATUS="P" OBS_QUAL="PROV" OBS_TYPE="A"/>
+      <Obs TIME_PERIOD="2026-05" OBS_VALUE="134.0" OBS_STATUS="A" OBS_QUAL="DEF" OBS_TYPE="A"/>
+      <Obs TIME_PERIOD="2026-04" OBS_VALUE="133.8" OBS_STATUS="A" OBS_QUAL="DEF" OBS_TYPE="A"/>
+      <Obs TIME_PERIOD="2026-03" OBS_STATUS="A" OBS_QUAL="DEF" OBS_TYPE="A"/>
+    </Series>
+  </message:DataSet>
+</message:StructureSpecificData>
