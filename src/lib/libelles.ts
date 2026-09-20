@@ -4,6 +4,7 @@ import type {
   CategorieModele,
   TypeEntite,
   ModePaiement,
+  OrigineConge,
   StatutBail,
   TypeBail,
   TypeCourrier,
@@ -58,6 +59,11 @@ export const STATUTS_BAIL: Record<StatutBail, string> = {
   EN_SIGNATURE: "En signature (Omniup Sign)",
   SIGNE: "Signé",
   TERMINE: "Terminé",
+};
+
+export const ORIGINES_CONGE: Record<OrigineConge, string> = {
+  LOCATAIRE: "Le locataire",
+  BAILLEUR: "Le bailleur",
 };
 
 export const MODES_PAIEMENT: Record<ModePaiement, string> = {
@@ -137,4 +143,37 @@ export const CATEGORIES_MODELE: Record<CategorieModele, string> = {
   CAUTION: "Cautions et garanties",
   CONVENTION: "Conventions, location-gérance et domiciliation",
   AUTRE: "Autres documents",
+};
+
+// ---------------------------------------------------------------------------
+// Demandes de maintenance (interventions signalées par le locataire)
+// ---------------------------------------------------------------------------
+
+import type { CategorieMaintenance, StatutMaintenance, UrgenceMaintenance } from "@prisma/client";
+
+export const CATEGORIES_MAINTENANCE: Record<CategorieMaintenance, string> = {
+  PLOMBERIE: "Plomberie (fuite, robinetterie, évacuation)",
+  ELECTRICITE: "Électricité (prise, interrupteur, tableau)",
+  CHAUFFAGE: "Chauffage, eau chaude et ventilation",
+  SERRURERIE: "Serrurerie (porte, serrure, clés)",
+  MENUISERIE: "Menuiserie (fenêtre, volet, placard)",
+  ELECTROMENAGER: "Électroménager fourni avec le logement",
+  DEGAT_EAUX: "Dégât des eaux, infiltration, humidité",
+  NUISIBLES: "Nuisibles (rongeurs, insectes)",
+  PARTIES_COMMUNES: "Parties communes de l'immeuble",
+  AUTRE: "Autre problème",
+};
+
+export const URGENCES_MAINTENANCE: Record<UrgenceMaintenance, string> = {
+  NORMALE: "Normale",
+  URGENTE: "Urgente",
+  TRES_URGENTE: "Très urgente",
+};
+
+export const STATUTS_MAINTENANCE: Record<StatutMaintenance, string> = {
+  NOUVELLE: "Nouvelle",
+  PRISE_EN_COMPTE: "Prise en compte",
+  PLANIFIEE: "Planifiée",
+  RESOLUE: "Résolue",
+  REFUSEE: "Refusée",
 };

@@ -6,6 +6,9 @@ import { nomsLocataires } from "@/lib/locataires";
 import { aujourdhui, formatDate, formatPeriode } from "@/lib/dates";
 import { formatEuros } from "@/lib/montants";
 import { libelleTaux, montantsMensuels } from "@/lib/tva";
+import { JOURS_ALERTE_ASSURANCE, LIBELLES_ASSURANCE, TONS_ASSURANCE, etatAssurance } from "@/lib/assurances";
+import { deposerAttestation, preparerEnvoiAttestationLocataire } from "@/actions/assurances";
+import { AttestationForm } from "@/components/baux/attestation-form";
 import { numeroAppel, numeroQuittance } from "@/lib/loyers";
 import { formatTaille } from "@/lib/storage";
 import { Alerte, Badge, ButtonLink, Card, CardBody, CardHeader, Infos, PageHeader, Stat, Tableau, TableauPied, Td, Th } from "@/components/ui";
@@ -34,6 +37,7 @@ export default async function EspaceBailPage({ params, searchParams }: { params:
     ...b.documents.map((d) => ({ cle: `d-${d.id}`, titre: d.titre, categorie: CATEGORIES_MODELE[d.categorie], date: d.dateEnvoi ?? d.createdAt, href: `/api/espace/documents/${d.id}/document.pdf` })),
   ].sort((a, c) => c.date.getTime() - a.date.getTime());
 
+  const assurance = etatAssurance(b.assurances, auj);
   return (
     <>
       <PageHeader
@@ -111,6 +115,56 @@ export default async function EspaceBailPage({ params, searchParams }: { params:
                 <TableauPied pagination={false}>{pluriel(b.appels.length, "appel de loyer", "appels de loyer")} · les documents s'ouvrent en PDF.</TableauPied>
               </>
             )}
+          </Card>
+
+          <Card>
+            <CardHeader
+              titre="Assurance habitation"
+              description="Votre contrat de location vous engage à assurer le logement contre les risques locatifs et à en justifier chaque année."
+              actions={<Badge ton={TONS_ASSURANCE[assurance.statut]}>{LIBELLES_ASSURANCE[assurance.statut]}</Badge>}
+            />
+            <CardBody>
+              {assurance.statut === "A_JOUR" ? (
+                <p className="text-sm text-slate-600">Votre logement est assuré jusqu'au <strong>{formatDate(assurance.echeance)}</strong>. Nous vous demanderons une nouvelle attestation {JOURS_ALERTE_ASSURANCE} jours avant cette date.</p>
+              ) : (
+                <Alerte ton={assurance.statut === "BIENTOT_EXPIREE" ? "orange" : "rouge"}>
+                  {assurance.statut === "MANQUANTE"
+                    ? "Nous n'avons pas encore reçu votre attestation d'assurance habitation : merci de la déposer ci-dessous."
+                    : assurance.statut === "EXPIREE"
+                      ? `Votre attestation est arrivée à échéance le ${formatDate(assurance.echeance)} : merci de déposer la nouvelle.`
+                      : `Votre attestation arrive à échéance le ${formatDate(assurance.echeance)} : pensez à déposer la suivante.`}
+                </Alerte>
+              )}
+              {b.assurances.length > 0 && (
+                <ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+                  {b.assurances.map((a) => (
+                    <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 text-sm">
+                      <span>
+                        <span className="font-semibold text-navy-900">Jusqu'au {formatDate(a.dateEcheance)}</span>
+                        {a.compagnie && <span className="text-slate-500"> · {a.compagnie}</span>}
+                        {a.numeroPolice && <span className="text-slate-500"> · contrat {a.numeroPolice}</span>}
+                      </span>
+                      {a.chemin && (
+                        <a href={`/api/espace/baux/${b.id}/assurance/${a.id}`} target="_blank" rel="noopener" className="font-semibold text-navy-800 hover:underline">
+                          {a.nomFichier ?? "Attestation"} <span className="font-normal text-slate-500">({formatTaille(a.taille ?? 0)})</span>
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {b.statut !== "TERMINE" && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <h3 className="mb-2 text-sm font-bold text-navy-900">Déposer une attestation</h3>
+                  <AttestationForm
+                    action={deposerAttestation.bind(null, b.id)}
+                    preparer={preparerEnvoiAttestationLocataire.bind(null, b.id)}
+                    fichierObligatoire
+                    libelleEnvoi="Envoyer mon attestation"
+                  />
+                </div>
+              )}
+            </CardBody>
           </Card>
 
           <Card>

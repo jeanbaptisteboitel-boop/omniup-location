@@ -12,6 +12,8 @@ import { ButtonLink, Card, CardHeader, PageHeader, Pastille, Stat, Tableau, Td, 
 import { IconeChevronDroite, IconeCoche } from "@/components/icones";
 import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { entiteCourante } from "@/lib/entite";
+import { etatAssurance } from "@/lib/assurances";
+import { dateLimiteRestitution, soldeDepot } from "@/lib/sortie-bail";
 import type { SearchParams } from "@/lib/params";
 import { Flash } from "@/components/flash";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
@@ -33,7 +35,7 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
   const [lots, nbLocataires, baux, appels, depensesAnnee, nbImmeubles] = await Promise.all([
     prisma.lot.findMany({ where: { entiteId }, select: { id: true, baux: { where: { statut: "SIGNE" }, select: { id: true } } } }),
     prisma.locataire.count({ where: { entiteId } }),
-    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataires: includeLocataires, revisions: { orderBy: { dateEffet: "desc" }, take: 1 } } }),
+    prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataires: includeLocataires, revisions: { orderBy: { dateEffet: "desc" }, take: 1 }, assurances: { select: { dateEcheance: true } }, retenuesDepot: true } }),
     prisma.appelLoyer.findMany({ where: { bail: { entiteId } }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] }),
     prisma.depense.aggregate({ where: { entiteId, date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) } }, _sum: { montant: true }, _count: { _all: true } }),
     prisma.immeuble.count({ where: { entiteId } }),
@@ -50,6 +52,10 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
   const lotsVacants = lots.length - lotsLoues;
   const bauxEnCours = baux.filter((b) => b.statut === "BROUILLON" || b.statut === "EN_SIGNATURE");
   const revisionsDues = baux.filter((b) => b.statut === "SIGNE" && b.clauseRevision && b.type !== "MOBILITE" && ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1).getTime() <= auj.getTime());
+  // Sortie du locataire et obligations associées : assurance à réclamer, départ à préparer, dépôt à restituer.
+  const assurancesAReclamer = baux.filter((b) => b.statut === "SIGNE" && etatAssurance(b.assurances, auj).statut !== "A_JOUR");
+  const departsAVenir = baux.filter((b) => b.statut === "SIGNE" && !!b.congeDateDepart);
+  const depotsARestituer = baux.filter((b) => b.statut === "TERMINE" && !!b.depotRecuLe && !b.depotRestitueLe);
   const finsProches = baux.filter((b) => b.statut === "SIGNE" && b.type === "MOBILITE" && b.dateFin.getTime() <= ajouterJours(auj, 45).getTime() && b.dateFin.getTime() >= auj.getTime());
   const nbDepenses = depensesAnnee._count._all;
   const totalDepenses = depensesAnnee._sum.montant ?? 0;
@@ -84,6 +90,38 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
   for (const b of finsProches) {
     taches.push({ cle: `fin-${b.id}`, href: `/baux/${b.id}`, ton: "bleu", n: b.lot.nom, texte: `bail mobilité · se termine le ${formatDate(b.dateFin)}`, detail: nomsLocataires(b.locataires) });
   }
+
+  if (assurancesAReclamer.length)
+    taches.push({
+      cle: "assurances",
+      href: `/baux/${assurancesAReclamer[0].id}?onglet=assurance`,
+      ton: "orange",
+      n: assurancesAReclamer.length,
+      texte: `attestation${pluriel(assurancesAReclamer.length)} d'assurance à réclamer`,
+      detail: assurancesAReclamer.map((b) => b.lot.nom).join(", "),
+    });
+  for (const b of departsAVenir)
+    taches.push({
+      cle: `depart-${b.id}`,
+      href: `/baux/${b.id}?onglet=sortie`,
+      ton: "orange",
+      n: b.lot.nom,
+      texte: `départ prévu le ${formatDate(b.congeDateDepart)}`,
+      detail: `${nomsLocataires(b.locataires)} · ${b.etatLieuxSortieLe ? "état des lieux réalisé, clôturez le bail" : "à planifier : état des lieux de sortie"}`,
+    });
+  for (const b of depotsARestituer) {
+    const solde = soldeDepot(b, b.retenuesDepot);
+    const limite = dateLimiteRestitution(b.dateFinEffective ?? b.dateFin, b.etatLieuxConforme);
+    taches.push({
+      cle: `depot-${b.id}`,
+      href: `/baux/${b.id}?onglet=sortie`,
+      ton: auj.getTime() > limite.getTime() ? "rouge" : "orange",
+      n: formatEuros(solde.restituable),
+      texte: "dépôt de garantie à restituer",
+      detail: `${b.lot.nom} · ${nomsLocataires(b.locataires)} · avant le ${formatDate(limite)}`,
+    });
+  }
+  
 
   const derniers = etats.slice(0, 8);
 

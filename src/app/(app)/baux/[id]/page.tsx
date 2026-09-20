@@ -5,6 +5,11 @@ import { idDepuis, texteParam, type ParamsId, type SearchParams } from "@/lib/pa
 import { CATEGORIES_MODELE, TYPES_BAIL, TYPES_BAIL_COURT, TYPES_COURRIER, TYPES_LOT, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
 import { REGLES_BAIL, dureeEnMois } from "@/lib/bail-regles";
 import { libelleTaux, montantsMensuels, usageHabitation } from "@/lib/tva";
+import { LIBELLES_ASSURANCE, TONS_ASSURANCE, etatAssurance } from "@/lib/assurances";
+import { soldeDepot } from "@/lib/sortie-bail";
+import { mailConfigure } from "@/lib/mail";
+import { OngletAssurance } from "@/components/baux/onglet-assurance";
+import { OngletSortie } from "@/components/baux/onglet-sortie";
 import { ajouterAnnees, aujourdhui, formatDate, formatPeriode, toISODate } from "@/lib/dates";
 import { formatEuros, formatNombre, somme } from "@/lib/montants";
 import { etatAppel } from "@/lib/loyers";
@@ -25,7 +30,7 @@ import { entiteCouranteId } from "@/lib/entite";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 
 const ETAPES = ["BROUILLON", "EN_SIGNATURE", "SIGNE", "TERMINE"] as const;
-const ONGLETS = ["contrat", "loyers", "courriers", "revisions"] as const;
+const ONGLETS = ["contrat", "loyers", "assurance", "courriers", "revisions", "sortie"] as const;
 type Onglet = (typeof ONGLETS)[number];
 
 export default async function BailPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
@@ -41,6 +46,8 @@ export default async function BailPage({ params, searchParams }: { params: Param
       revisions: { orderBy: { dateEffet: "asc" } },
       courriers: { orderBy: { createdAt: "desc" } },
       documents: { orderBy: { createdAt: "desc" } },
+      retenuesDepot: { orderBy: { createdAt: "asc" } },
+      assurances: { orderBy: { dateEcheance: "desc" }, include: { locataire: true } },
     },
   });
   if (!b) notFound();
@@ -60,6 +67,9 @@ export default async function BailPage({ params, searchParams }: { params: Param
   const mensuel = montantsMensuels(b);
   const loyerCC = mensuel.ttc;
   const tvaSansNumero = b.tauxTva > 0 && !b.lot.bailleur?.numeroTva;
+  const assurance = etatAssurance(b.assurances, auj);
+  const depot = soldeDepot(b, b.retenuesDepot, resteDu);
+  const depotARestituer = b.statut === "TERMINE" && !!b.depotRecuLe && !b.depotRestitueLe;
   const lienOnglet = (o: Onglet) => (o === "contrat" ? `/baux/${b.id}` : `/baux/${b.id}?onglet=${o}`);
   const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`;
   const indice = b.irlTrimestre || b.irlValeur !== null ? `IRL ${b.irlTrimestre ?? ""}${b.irlTrimestre && b.irlValeur !== null ? " · " : ""}${b.irlValeur !== null ? formatNombre(b.irlValeur) : ""}`.trim() : null;
@@ -169,6 +179,17 @@ export default async function BailPage({ params, searchParams }: { params: Param
         actions={actions}
       />
       <Flash sp={sp} />
+      {b.statut === "SIGNE" && assurance.statut !== "A_JOUR" && (
+        <Alerte ton={assurance.statut === "BIENTOT_EXPIREE" ? "orange" : "rouge"} titre={`Assurance habitation : ${LIBELLES_ASSURANCE[assurance.statut].toLowerCase()}`} className="mb-6">
+          {assurance.echeance ? `La couverture s'achève le ${formatDate(assurance.echeance)}. ` : ""}
+          Demandez l'attestation au locataire depuis l'onglet <Link href={lienOnglet("assurance")} className="font-semibold underline">Assurance</Link>.
+        </Alerte>
+      )}
+      {depotARestituer && (
+        <Alerte ton="orange" titre="Dépôt de garantie à restituer" className="mb-6">
+          {formatEuros(depot.restituable)} à restituer au locataire après déduction des retenues. Établissez le décompte depuis l'onglet <Link href={lienOnglet("sortie")} className="font-semibold underline">Sortie</Link>.
+        </Alerte>
+      )}
       {tvaSansNumero && (
         <Alerte ton="orange" titre="Numéro de TVA du bailleur manquant" className="mb-6">
           Ce bail est soumis à la TVA : renseignez le numéro de TVA intracommunautaire du bailleur dans sa fiche, il doit figurer sur les avis d'échéance et les quittances.
@@ -197,8 +218,10 @@ export default async function BailPage({ params, searchParams }: { params: Param
               items={[
                 { href: lienOnglet("contrat"), libelle: "Contrat", actif: onglet === "contrat" },
                 { href: lienOnglet("loyers"), libelle: `Loyers${b.appels.length ? ` (${b.appels.length})` : ""}`, actif: onglet === "loyers" },
+                { href: lienOnglet("assurance"), libelle: "Assurance", actif: onglet === "assurance" },
                 { href: lienOnglet("courriers"), libelle: `Courriers${b.courriers.length ? ` (${b.courriers.length})` : ""}`, actif: onglet === "courriers" },
                 { href: lienOnglet("revisions"), libelle: "Révisions", actif: onglet === "revisions" },
+                { href: lienOnglet("sortie"), libelle: b.congeRecuLe || b.statut === "TERMINE" ? "Sortie ●" : "Sortie", actif: onglet === "sortie" },
               ]}
             />
 
@@ -421,6 +444,20 @@ export default async function BailPage({ params, searchParams }: { params: Param
                 )}
               </div>
             )}
+
+            {onglet === "assurance" && (
+              <OngletAssurance
+                bailId={b.id}
+                attestations={b.assurances}
+                locataires={b.locataires}
+                assuranceDemandeeLe={b.assuranceDemandeeLe}
+                assuranceRelanceLe={b.assuranceRelanceLe}
+                mailConfigure={mailConfigure()}
+                bailEnCours={b.statut === "SIGNE"}
+              />
+            )}
+
+            {onglet === "sortie" && <OngletSortie bail={b} impayes={resteDu} />}
           </Card>
 
           <Card className="md:col-start-2 md:row-start-1">

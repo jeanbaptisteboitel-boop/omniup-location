@@ -38,6 +38,7 @@ model Entite {
   depenses   Depense[]
   emprunts   Emprunt[]
   documents  DocumentGenere[]
+  demandes   DemandeMaintenance[]
   acces      AccesEntite[]
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
@@ -240,6 +241,7 @@ model Lot {
   baux               Bail[]
   depenses           Depense[]
   emprunts           Emprunt[]
+  demandes           DemandeMaintenance[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -268,6 +270,8 @@ model Locataire {
   documents         Document[]
   /// Baux dont la personne est titulaire (seule ou avec d'autres locataires : couple, colocation).
   baux              Bail[]     @relation("BailLocataires")
+  attestations      AttestationAssurance[]
+  demandes          DemandeMaintenance[]
   /// Espace locataire : jeton d'accès personnel (lien), création, envoi par email et dernière visite.
   accesJeton        String?    @unique
   accesCreeLe       DateTime?
@@ -349,6 +353,28 @@ model Bail {
   signatureRef       String?
   dateSignature      DateTime?
   dateFinEffective   DateTime?
+  /// Dépôt de garantie : encaissement, restitution et retenues justifiées (état des lieux de sortie).
+  depotRecuLe          DateTime?
+  depotRecuMontant     Float?
+  depotRecuMode        ModePaiement?
+  depotRecuReference   String?
+  depotRestitueLe      DateTime?
+  depotRestitueMontant Float?
+  depotRestitueMode    ModePaiement?
+  retenuesDepot        RetenueDepot[]
+  /// Sortie du locataire : réception du congé, préavis, départ annoncé et état des lieux de sortie.
+  congeRecuLe          DateTime?
+  congeOrigine         OrigineConge?
+  congeMotif           String?
+  congePreavisMois     Int?
+  congeDateDepart      DateTime?
+  etatLieuxSortieLe    DateTime?
+  etatLieuxConforme    Boolean?
+  /// Assurance habitation du locataire : attestations reçues et suivi des demandes de renouvellement.
+  assurances           AttestationAssurance[]
+  assuranceDemandeeLe  DateTime?
+  assuranceRelanceLe   DateTime?
+  demandes             DemandeMaintenance[]
   /// Exemplaire signé du contrat (PDF ou image déposé par le gestionnaire), consultable dans l'espace locataire.
   contratSigneChemin String?
   contratSigneNom    String?
@@ -446,6 +472,122 @@ model Paiement {
   mode      ModePaiement @default(VIREMENT)
   reference String?
   createdAt DateTime     @default(now())
+}
+
+/// Qui a donné congé : le locataire (préavis) ou le bailleur (congé pour vente, reprise ou motif légitime).
+enum OrigineConge {
+  LOCATAIRE
+  BAILLEUR
+}
+
+/// Retenue sur le dépôt de garantie, justifiée par l'état des lieux de sortie ou une dette locative.
+model RetenueDepot {
+  id        Int      @id @default(autoincrement())
+  bailId    Int
+  bail      Bail     @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  libelle   String
+  montant   Float
+  createdAt DateTime @default(now())
+
+  @@index([bailId])
+}
+
+/// Attestation d'assurance habitation remise par le locataire (obligation annuelle, art. 7 g de la loi du 6 juillet 1989).
+model AttestationAssurance {
+  id                 Int        @id @default(autoincrement())
+  bailId             Int
+  bail               Bail       @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  locataireId        Int?
+  locataire          Locataire? @relation(fields: [locataireId], references: [id], onDelete: SetNull)
+  compagnie          String?
+  numeroPolice       String?
+  dateDebut          DateTime?
+  dateEcheance       DateTime
+  nomFichier         String?
+  chemin             String?
+  mimeType           String?
+  taille             Int?
+  /// Déposée par le locataire depuis son espace (sinon saisie par le gestionnaire).
+  deposeParLocataire Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+
+  @@index([bailId])
+}
+
+enum CategorieMaintenance {
+  PLOMBERIE
+  ELECTRICITE
+  CHAUFFAGE
+  SERRURERIE
+  MENUISERIE
+  ELECTROMENAGER
+  DEGAT_EAUX
+  NUISIBLES
+  PARTIES_COMMUNES
+  AUTRE
+}
+
+enum UrgenceMaintenance {
+  NORMALE
+  URGENTE
+  TRES_URGENTE
+}
+
+enum StatutMaintenance {
+  NOUVELLE
+  PRISE_EN_COMPTE
+  PLANIFIEE
+  RESOLUE
+  REFUSEE
+}
+
+enum AuteurMessage {
+  LOCATAIRE
+  GESTIONNAIRE
+}
+
+/// Demande de maintenance (intervention) adressée par le locataire depuis son espace, suivie par le gestionnaire.
+model DemandeMaintenance {
+  id             Int                  @id @default(autoincrement())
+  entiteId       Int
+  entite         Entite               @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  bailId         Int
+  bail           Bail                 @relation(fields: [bailId], references: [id], onDelete: Cascade)
+  lotId          Int
+  lot            Lot                  @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  locataireId    Int?
+  locataire      Locataire?           @relation(fields: [locataireId], references: [id], onDelete: SetNull)
+  objet          String
+  description    String
+  categorie      CategorieMaintenance @default(AUTRE)
+  urgence        UrgenceMaintenance   @default(NORMALE)
+  statut         StatutMaintenance    @default(NOUVELLE)
+  interventionLe DateTime?
+  clotureeLe     DateTime?
+  /// Dernière lecture par le locataire : repère les réponses non lues dans son espace.
+  luLocataireLe  DateTime?
+  messages       MessageMaintenance[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([entiteId])
+  @@index([bailId])
+}
+
+/// Échange lié à une demande de maintenance (locataire ou gestionnaire), avec photo ou devis éventuel.
+model MessageMaintenance {
+  id         Int                @id @default(autoincrement())
+  demandeId  Int
+  demande    DemandeMaintenance @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  auteur     AuteurMessage
+  texte      String
+  nomFichier String?
+  chemin     String?
+  mimeType   String?
+  taille     Int?
+  createdAt  DateTime           @default(now())
+
+  @@index([demandeId])
 }
 
 // ---------------------------------------------------------------------------

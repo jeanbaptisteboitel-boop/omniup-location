@@ -68,6 +68,7 @@ export const includeBailEspace = {
   appels: { orderBy: { periode: "desc" as const }, include: { paiements: { orderBy: { date: "asc" as const } } } },
   courriers: { where: { dateEnvoi: { not: null } }, orderBy: { dateEnvoi: "desc" as const } },
   documents: { where: { dateEnvoi: { not: null } }, orderBy: { dateEnvoi: "desc" as const } },
+  assurances: { orderBy: { dateEcheance: "desc" as const } },
 } satisfies Prisma.BailInclude;
 
 export type BailEspace = Prisma.BailGetPayload<{ include: typeof includeBailEspace }>;

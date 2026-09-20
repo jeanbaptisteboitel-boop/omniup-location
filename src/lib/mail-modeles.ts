@@ -95,6 +95,34 @@ export function emailAccesLocataire(l: { civilite: string | null; nom: string },
   return { objet: "Votre espace locataire", corps: lignes.join("\n") };
 }
 
+/** Demande (ou relance) de l'attestation d'assurance habitation, à déposer dans l'espace locataire. */
+export function emailDemandeAssurance(
+  locataires: { civilite: string | null; nom: string }[],
+  lot: { nom: string },
+  etat: { statut: "A_JOUR" | "BIENTOT_EXPIREE" | "EXPIREE" | "MANQUANTE"; echeance: Date | null },
+  lien: string | null,
+  bailleur: { nom: string; representant: string | null } | null,
+): { objet: string; corps: string } {
+  const situation =
+    etat.statut === "MANQUANTE"
+      ? "nous n'avons pas encore reçu votre attestation d'assurance habitation"
+      : etat.statut === "EXPIREE"
+        ? `votre attestation d'assurance habitation est arrivée à échéance le ${formatDate(etat.echeance)}`
+        : `votre attestation d'assurance habitation arrive à échéance le ${formatDate(etat.echeance)}`;
+  const lignes = [
+    `Bonjour ${formuleAppel(locataires)},`,
+    "",
+    `Concernant le logement ${lot.nom}, ${situation}.`,
+    "",
+    "Le contrat de location prévoit que vous justifiez chaque année d'une assurance contre les risques locatifs (article 7 g de la loi du 6 juillet 1989). Merci de nous transmettre votre nouvelle attestation.",
+    ...(lien ? ["", "Vous pouvez la déposer directement depuis votre espace locataire :", lien] : ["", "Vous pouvez nous l'adresser en réponse à cet email."]),
+    "",
+    "Cordialement,",
+    signature(bailleur),
+  ];
+  return { objet: `Attestation d'assurance habitation - ${lot.nom}`, corps: lignes.join("\n") };
+}
+
 /** Lien d'accès à l'espace propriétaire (bailleur). */
 export function emailAccesBailleur(b: { nom: string; representant: string | null }, lien: string, expediteur: string | null): { objet: string; corps: string } {
   const lignes = [

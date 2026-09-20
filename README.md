@@ -13,6 +13,9 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 - Locataires : nom, prénom, adresse, téléphone, email, et dossier de candidature : pièces d'identité, avis d'imposition, lettres de recommandation, justificatifs de domicile, justificatifs de revenus (PDF ou images).
 - Baux reliant un lot et un ou plusieurs locataires (couple, colocation : titulaires solidaires, chacun destinataire des avis, quittances et courriers) : **non meublé**, **meublé** ou **bail mobilité** (loi de 1989), **bail commercial** (9 ans ou dérogatoire), **bail professionnel** (6 ans) et **location meublée de tourisme** (90 jours au plus), avec les règles de chaque type (durée par défaut, plafond ou liberté du dépôt de garantie, charges au forfait, motif du bail mobilité, indice de révision).
 - Cycle de vie : brouillon → en signature (Omniup Sign) → signé → terminé.
+- **Sortie du locataire** : réception du congé (par le locataire ou le bailleur, avec le préavis légal proposé selon le type de bail et réductible à un mois en zone tendue), date de départ calculée, état des lieux de sortie et sa conformité, clôture du bail au départ effectif avec recalcul du dernier loyer au prorata des jours occupés.
+- **Dépôt de garantie** : encaissement (date, montant, mode de règlement, référence), retenues justifiées une à une, décompte de restitution tenant compte des loyers restant dus et de la majoration légale de 10 % par mois de retard, restitution enregistrée et lettre de décompte en PDF.
+- **Assurance habitation** : attestations du locataire (compagnie, contrat, échéance, justificatif), état de la couverture (à jour, bientôt expirée, expirée, manquante), demande par email et relance automatique hebdomadaire tant que l'attestation manque ; le locataire dépose son attestation lui-même depuis son espace.
 - Contrat : rédaction manuelle ou par l'assistant IA, export PDF à faire signer.
 - Révision annuelle du loyer sur l'IRL avec historique, courrier de notification ; le dernier IRL publié est récupéré automatiquement auprès de l'INSEE (service de données public, sans clé) et proposé à la signature comme à la révision.
 
@@ -33,7 +36,7 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Entités** : par défaut une seule entité ; en activant la gestion multi-entités (Paramètres), une entreprise de gérance ou un cabinet gère plusieurs personnes et sociétés, chacune avec ses bailleurs, immeubles, lots, locataires, baux, dépenses, emprunts et documents, l'entité de travail se choisissant dans la barre latérale.
 
-**Espace locataire** : chaque locataire reçoit un lien d'accès personnel (créé depuis sa fiche, envoyé par email ou copié) qui ouvre `/espace` : détail du bail, exemplaire signé du contrat déposé par le gestionnaire, avis d'échéance et quittances en PDF, courriers et documents envoyés ou marqués remis, solde dû et échéances en retard. Le lien reste valable jusqu'à sa révocation depuis la fiche du locataire ; un lien perdu se redemande par email depuis la page de connexion de l'espace.
+**Espace locataire** : chaque locataire reçoit un lien d'accès personnel (créé depuis sa fiche, envoyé par email ou copié) qui ouvre `/espace` : détail du bail, exemplaire signé du contrat déposé par le gestionnaire, avis d'échéance et quittances en PDF, courriers et documents envoyés ou marqués remis, solde dû et échéances en retard, dépôt de son attestation d'assurance habitation. Le lien reste valable jusqu'à sa révocation depuis la fiche du locataire ; un lien perdu se redemande par email depuis la page de connexion de l'espace.
 
 **Espace propriétaire** : chaque bailleur (propriétaire dont vous gérez les biens) dispose de même d'un lien d'accès personnel, créé depuis sa fiche, qui ouvre `/proprietaire` : ses lots (loués ou vacants), le bail en cours et les baux passés de chaque lot avec le contrat et l'exemplaire signé, les appels de loyer avec avis et quittances, les dépenses avec justificatifs, les loyers encaissés et le reste dû, et la synthèse annuelle recettes / dépenses limitée à ses biens.
 
@@ -72,7 +75,7 @@ Sans variables `SCW_*`, les fichiers importés sont écrits dans `storage/` ; sa
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` | Alternative à Resend : serveur SMTP classique, utilisé seulement si `RESEND_API_KEY` est vide (l'expéditeur reste `MAIL_FROM`). |
 | `AVIS_JOURS_AVANCE` | Nombre de jours avant le début du mois pour émettre l'avis d'échéance (10 par défaut). |
 | `AVIS_ENVOI_AUTO` | `true` pour envoyer automatiquement les avis émis par la tâche planifiée. |
-| `CRON_SECRET` | Secret protégeant `/api/cron/loyers`. |
+| `CRON_SECRET` | Secret protégeant `/api/cron/loyers`, `/api/cron/indices` et `/api/cron/assurances`. |
 | `APP_URL` | Adresse publique de l'application (ex. `https://votre-app.vercel.app`, plusieurs adresses séparées par des virgules) : origine autorisée à envoyer les fichiers directement vers le bucket. |
 | `INSEE_URL` | Facultatif : base du service de données de l'INSEE (`https://bdm.insee.fr` par défaut), à changer seulement pour passer par un relais. |
 | `ALERTES_EMAIL` | Facultatif : adresse qui reçoit les alertes du module Indices INSEE (échecs répétés, série arrêtée ou rebasée, libellé modifié) quand l'envoi d'emails est configuré ; sinon les alertes restent visibles dans l'application. |
@@ -86,7 +89,7 @@ La page **Paramètres** de l'application affiche l'état de chaque configuration
 
 1. **Neon** : créez un projet PostgreSQL et récupérez les deux chaînes de connexion (pooled → `DATABASE_URL`, directe → `DIRECT_URL`).
 2. **Scaleway Object Storage** : créez un bucket privé (région `fr-par` par exemple) et une clé API ; renseignez `SCW_ACCESS_KEY`, `SCW_SECRET_KEY`, `SCW_BUCKET`, `SCW_REGION`. Autorisez l'envoi direct depuis le navigateur : une fois l'application déployée avec `APP_URL` renseignée, cliquez sur « Autoriser l'envoi direct » dans Paramètres (carte Stockage des fichiers), ou lancez `APP_URL=https://votre-app.vercel.app node scripts/configurer-cors.mjs`. Sans cette règle CORS, l'import d'un document échoue avec « Failed to fetch ».
-3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_SECRET`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie chaque jour l'émission des appels de loyer à 6 h UTC via `/api/cron/loyers` et la synchronisation des indices INSEE à 7 h 30 UTC (9 h 30 à Paris en heure d'été) via `/api/cron/indices` (Vercel transmet `CRON_SECRET` automatiquement).
+3. **Vercel** : importez le dépôt, renseignez toutes les variables du tableau ci-dessus (au minimum base, stockage, `APP_SECRET`, `CRON_SECRET`). Le fichier `vercel.json` applique les migrations avant chaque build (`prisma migrate deploy`) et planifie chaque jour l'émission des appels de loyer à 6 h UTC via `/api/cron/loyers` et la synchronisation des indices INSEE à 7 h 30 UTC (9 h 30 à Paris en heure d'été) via `/api/cron/indices`, et chaque lundi la relance des attestations d'assurance à 8 h UTC via `/api/cron/assurances` (Vercel transmet `CRON_SECRET` automatiquement).
 4. Les fonctions longues (rédaction IA, OCR, envois d'emails) déclarent `maxDuration = 300` ; si votre projet Vercel n'utilise pas Fluid compute, ramenez cette valeur à 60 dans les pages concernées.
 5. **Première connexion** : ouvrez `/connexion` et créez le compte super-administrateur (nom, email, mot de passe ; le mot de passe principal est demandé en plus si `APP_PASSWORD` est défini). Créez ensuite les autres utilisateurs depuis la page Utilisateurs, par invitation par email ou avec un mot de passe initial. Pour protéger les formulaires publics des robots, créez un widget [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) pour le domaine de l'application et renseignez `TURNSTILE_SITE_KEY` et `TURNSTILE_SECRET_KEY`.
 
@@ -106,7 +109,7 @@ Aujourd'hui, le contrat est téléchargé en PDF depuis la fiche du bail, signé
 
 ```bash
 npm run typecheck   # vérification TypeScript
-npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants, indices INSEE, sessions et comptes, espaces locataire et propriétaire, déploiement des PDF)
+npm test            # tests unitaires (règles des baux, appels de loyer, échéanciers, montants, indices INSEE, TVA, aide 2044, préavis et dépôt de garantie, assurance, sessions et comptes, espaces locataire et propriétaire, déploiement des PDF)
 node scripts/verifier-idbanks.mjs   # contrôle des idbanks INSEE par appel réel (libellé officiel, dernière valeur)
 npm run db:studio   # exploration de la base de données
 ```
