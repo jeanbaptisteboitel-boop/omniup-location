@@ -47,6 +47,8 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 
 **Indices INSEE** : les indices IRL, ILC, ILAT, ICC et BT01 sont lus chaque jour sur le service de données de l'INSEE (accès libre, sans clé), historisés en base depuis 2000 avec leur statut (provisoire ou définitif) et le journal des révisions, consultables (tableau, historique, courbe) et exposés par une API interne ; d'autres séries s'ajoutent sans redéploiement, leur idbank étant vérifié auprès de l'INSEE. Détails : `src/lib/insee/README.md`.
 
+**Assistance** : un bouton « Aide » présent en bas de chaque page ouvre un ticket en trois clics : demande d'aide, signalement d'un problème ou proposition d'amélioration, avec une capture d'écran facultative. La page d'où le ticket est ouvert et le navigateur utilisé sont joints automatiquement. Les tickets sont conservés dans la rubrique Assistance (statut nouveau, en cours, résolu, fermé, note de suivi) et transmis par email à l'adresse `SUPPORT_EMAIL` lorsqu'elle est renseignée.
+
 **Calculatrices** : pourcentages de loyer et taux d'effort, révision de loyer par indice (IRL annuel, ILC/ILAT annuel ou triennal, plafond, derniers indices publiés par l'INSEE récupérés en un clic), rentabilité brute et nette avec cash-flow, frais de notaire, capacité d'emprunt, mensualité et coût d'un prêt, prêt in fine.
 
 **Assistant IA** (Anthropic Claude) : chatbot de conseil en gestion locative connaissant l'entité de travail, rédaction de tout courrier (enregistrable comme document), rédaction des contrats, courriers de révision ou de relance et emails d'accompagnement. **OCR et extraction** (Mistral) : lecture des échéanciers PDF ou photographiés.
@@ -81,6 +83,7 @@ Sans variables `SCW_*`, les fichiers importés sont écrits dans `storage/` ; sa
 | `CRON_SECRET` | Secret protégeant `/api/cron/loyers`, `/api/cron/indices` et `/api/cron/assurances`. |
 | `APP_URL` | Adresse publique de l'application (ex. `https://votre-app.vercel.app`, plusieurs adresses séparées par des virgules) : origine autorisée à envoyer les fichiers directement vers le bucket. |
 | `INSEE_URL` | Facultatif : base du service de données de l'INSEE (`https://bdm.insee.fr` par défaut), à changer seulement pour passer par un relais. |
+| `SUPPORT_EMAIL` | Facultatif : adresse recevant les tickets d'assistance ouverts depuis le bouton « Aide » (à défaut, `ALERTES_EMAIL`). Sans adresse, les tickets restent consultables dans l'application. |
 | `ALERTES_EMAIL` | Facultatif : adresse qui reçoit les alertes du module Indices INSEE (échecs répétés, série arrêtée ou rebasée, libellé modifié) quand l'envoi d'emails est configuré ; sinon les alertes restent visibles dans l'application. |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Assistant de rédaction (modèle `claude-opus-5` par défaut). |
 | `MISTRAL_API_KEY`, `MISTRAL_MODEL_OCR`, `MISTRAL_MODEL_EXTRACTION` | OCR et extraction des échéanciers PDF/images (`mistral-ocr-latest`, `mistral-medium-latest`). |

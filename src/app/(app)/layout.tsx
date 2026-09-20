@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { Sidebar } from "@/components/sidebar";
+import { BoutonTicket } from "@/components/tickets/bouton-ticket";
+import { creerTicket, preparerEnvoiTicket } from "@/actions/tickets";
 import { FlashGlobal } from "@/components/flash-global";
 import { exigerSession } from "@/lib/utilisateurs";
 import { seDeconnecter } from "@/actions/session";
@@ -36,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </main>
+      <BoutonTicket action={creerTicket} preparer={preparerEnvoiTicket} />
     </div>
   );
 }

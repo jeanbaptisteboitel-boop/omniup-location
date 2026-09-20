@@ -3,6 +3,7 @@ import { formatEuros } from "./montants";
 import { adresseSurUneLigne } from "./libelles";
 import { formuleAppel } from "./locataires";
 import { numeroAppel } from "./loyers";
+import { numeroTicket } from "./tickets";
 import { libelleTaux, usageHabitation } from "./tva";
 import type { AppelComplet } from "./pdf/donnees";
 
@@ -121,6 +122,31 @@ export function emailDemandeAssurance(
     signature(bailleur),
   ];
   return { objet: `Attestation d'assurance habitation - ${lot.nom}`, corps: lignes.join("\n") };
+}
+
+/** Ticket d'assistance transmis à l'équipe (aide, dysfonctionnement, proposition). */
+export function emailTicket(
+  t: { id: number; type: "AIDE" | "BUG" | "FONCTIONNALITE"; objet: string; description: string; page: string | null; navigateur: string | null; nomFichier: string | null },
+  auteur: { nom: string; email: string | null },
+  entite: string,
+  lien: string | null,
+): { objet: string; corps: string } {
+  const nature = t.type === "BUG" ? "Signalement d'un problème" : t.type === "FONCTIONNALITE" ? "Proposition d'amélioration" : "Demande d'aide";
+  const lignes = [
+    `${nature} - ticket ${numeroTicket(t.id)}`,
+    "",
+    `Entité : ${entite}`,
+    `Auteur : ${auteur.nom}${auteur.email ? ` (${auteur.email})` : ""}`,
+    ...(t.page ? [`Page : ${t.page}`] : []),
+    ...(t.navigateur ? [`Navigateur : ${t.navigateur}`] : []),
+    ...(t.nomFichier ? [`Pièce jointe déposée : ${t.nomFichier}`] : []),
+    "",
+    `Objet : ${t.objet}`,
+    "",
+    t.description,
+    ...(lien ? ["", `Suivi du ticket : ${lien}`] : []),
+  ];
+  return { objet: `[${nature}] ${t.objet}`, corps: lignes.join("\n") };
 }
 
 /** Lien d'accès à l'espace propriétaire (bailleur). */

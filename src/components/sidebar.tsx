@@ -11,6 +11,7 @@ import { ROLES, administreUneEntite, roleSur, sessionCourante, type Session } fr
 import { changerEntite } from "@/actions/entites";
 import { EntiteSwitcher } from "./entites/entite-switcher";
 import { IconeMaintenance } from "./maintenance/icone";
+import { IconeAide } from "./tickets/icone";
 import { compterOuvertes } from "@/lib/maintenance";
 
 type Lien = { href: string; libelle: ReactNode; icone: ReactNode };
@@ -86,6 +87,7 @@ async function PanneauNav({ multi, session }: { multi: boolean; session: Session
       liens: [
         ...(multi && session?.superAdmin ? [{ href: "/entites", libelle: "Entités", icone: <IconeEntites /> }] : []),
         ...(admin && protectionActive() ? [{ href: "/utilisateurs", libelle: "Utilisateurs", icone: <IconeLocataires /> }] : []),
+        { href: "/tickets", libelle: "Assistance", icone: <IconeAide /> },
         ...(role === "ADMINISTRATEUR" ? [{ href: "/parametres", libelle: "Paramètres", icone: <IconeParametres /> }] : []),
       ],
     },

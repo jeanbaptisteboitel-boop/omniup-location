@@ -39,6 +39,7 @@ model Entite {
   emprunts   Emprunt[]
   documents  DocumentGenere[]
   demandes   DemandeMaintenance[]
+  tickets    Ticket[]
   acces      AccesEntite[]
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
@@ -68,6 +69,7 @@ model Utilisateur {
   jetonExpireLe     DateTime?
   derniereConnexion DateTime?
   acces             AccesEntite[]
+  tickets           Ticket[]
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 }
@@ -588,6 +590,50 @@ model MessageMaintenance {
   createdAt  DateTime           @default(now())
 
   @@index([demandeId])
+}
+
+enum TypeTicket {
+  AIDE
+  BUG
+  FONCTIONNALITE
+}
+
+enum StatutTicket {
+  NOUVEAU
+  EN_COURS
+  RESOLU
+  FERME
+}
+
+/// Ticket d'assistance ouvert depuis l'application : demande d'aide, signalement de bug ou proposition de fonctionnalité.
+model Ticket {
+  id            Int          @id @default(autoincrement())
+  entiteId      Int?
+  entite        Entite?      @relation(fields: [entiteId], references: [id], onDelete: SetNull)
+  utilisateurId Int?
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+  auteurNom     String
+  auteurEmail   String?
+  type          TypeTicket
+  objet         String
+  description   String
+  /// Page d'où le ticket a été ouvert et navigateur utilisé : aident à reproduire un dysfonctionnement.
+  page          String?
+  navigateur    String?
+  statut        StatutTicket @default(NOUVEAU)
+  /// Suivi interne (réponse de l'assistance, décision, référence).
+  suivi         String?
+  suiviLe       DateTime?
+  nomFichier    String?
+  chemin        String?
+  mimeType      String?
+  taille        Int?
+  /// Horodatage de la transmission par email à l'assistance.
+  envoyeLe      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([entiteId])
 }
 
 // ---------------------------------------------------------------------------
