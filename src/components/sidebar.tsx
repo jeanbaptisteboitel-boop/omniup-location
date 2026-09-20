@@ -10,8 +10,10 @@ import { entiteCourante, listeEntites, multiEntitesActif } from "@/lib/entite";
 import { ROLES, administreUneEntite, roleSur, sessionCourante, type Session } from "@/lib/utilisateurs";
 import { changerEntite } from "@/actions/entites";
 import { EntiteSwitcher } from "./entites/entite-switcher";
+import { IconeMaintenance } from "./maintenance/icone";
+import { compterOuvertes } from "@/lib/maintenance";
 
-type Lien = { href: string; libelle: string; icone: ReactNode };
+type Lien = { href: string; libelle: ReactNode; icone: ReactNode };
 
 const GROUPES: { titre: string | null; liens: Lien[] }[] = [
   { titre: null, liens: [{ href: "/", libelle: "Tableau de bord", icone: <IconeTableauDeBord /> }] },
@@ -29,6 +31,7 @@ const GROUPES: { titre: string | null; liens: Lien[] }[] = [
       { href: "/locataires", libelle: "Locataires", icone: <IconeLocataires /> },
       { href: "/baux", libelle: "Baux", icone: <IconeBail /> },
       { href: "/loyers", libelle: "Loyers et quittances", icone: <IconeEuro /> },
+      { href: "/maintenance", libelle: "Maintenance", icone: <IconeMaintenance /> },
       { href: "/documents", libelle: "Documents", icone: <IconeDocuments /> },
       { href: "/modeles", libelle: "Modèles de documents", icone: <IconeModeles /> },
     ],
@@ -61,13 +64,23 @@ function Deconnexion() {
   );
 }
 
+/** Le lien Maintenance porte le nombre de demandes encore ouvertes sur l'entité. */
+function avecCompteur(liens: Lien[], ouvertes: number): Lien[] {
+  if (ouvertes === 0) return liens;
+  return liens.map((l) =>
+    l.href === "/maintenance"
+      ? { ...l, libelle: <span className="flex items-center gap-2">Maintenance<span className="rounded-full bg-brand-cyan px-1.5 text-[11px] font-bold leading-[17px] text-navy-950">{ouvertes}</span></span> }
+      : l,
+  );
+}
+
 async function PanneauNav({ multi, session }: { multi: boolean; session: Session | null }) {
   const entite = await entiteCourante();
-  const entites = multi ? await listeEntites() : [];
+  const [entites, ouvertes] = await Promise.all([multi ? listeEntites() : [], compterOuvertes(entite.id)]);
   const role = session ? roleSur(session, entite.id) : null;
   const admin = session ? administreUneEntite(session) : false;
   const groupes = [
-    ...GROUPES,
+    ...GROUPES.map((g) => (g.titre === "Location" ? { ...g, liens: avecCompteur(g.liens, ouvertes) } : g)),
     {
       titre: null,
       liens: [

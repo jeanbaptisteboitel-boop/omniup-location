@@ -1,16 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { exigerLocataire } from "@/lib/espace";
+import { compterNonLuesLocataire } from "@/lib/maintenance";
 import { nomComplet } from "@/lib/libelles";
 import { seDeconnecterEspace } from "@/actions/espace";
 import { Button } from "@/components/ui";
 import { Logomark } from "@/components/logomark";
+import { NavEspace } from "@/components/espace/nav-espace";
 
 export const dynamic = "force-dynamic";
 
 /** Espace locataire : en-tête simple (sans la navigation du gestionnaire), accès réservé au locataire identifié par son lien. */
 export default async function EspaceLayout({ children }: { children: ReactNode }) {
   const l = await exigerLocataire();
+  const nonLues = await compterNonLuesLocataire(l.id);
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
@@ -30,6 +33,12 @@ export default async function EspaceLayout({ children }: { children: ReactNode }
           </div>
         </div>
       </header>
+      <NavEspace
+        liens={[
+          { href: "/espace", libelle: "Mon espace" },
+          { href: "/espace/maintenance", libelle: "Mes demandes", pastille: nonLues },
+        ]}
+      />
       <main className="mx-auto max-w-[1000px] px-4 pb-12 pt-6 sm:px-6">{children}</main>
       <footer className="mx-auto max-w-[1000px] px-4 pb-8 text-center text-xs text-slate-500 sm:px-6">Espace mis à votre disposition par votre bailleur. Pour toute question sur votre location, contactez-le directement.</footer>
     </div>

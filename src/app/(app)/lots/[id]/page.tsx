@@ -12,14 +12,17 @@ import { ConfirmForm } from "@/components/confirm-form";
 import { Flash } from "@/components/flash";
 import { BadgeStatutBail } from "@/components/baux/badge-statut";
 import { entiteCouranteId } from "@/lib/entite";
+import { demandesDuLot, estOuverte } from "@/lib/maintenance";
+import { BadgeStatutMaintenance, BadgeUrgence } from "@/components/maintenance/badges";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 import { libelleTaux, montantsMensuels, optionTvaEffective } from "@/lib/tva";
 
 export default async function LotPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
   const sp = await searchParams;
+  const entiteId = await entiteCouranteId();
   const lot = await prisma.lot.findFirst({
-    where: { id, entiteId: await entiteCouranteId() },
+    where: { id, entiteId },
     include: {
       bailleur: true,
       immeuble: true,
@@ -30,6 +33,8 @@ export default async function LotPage({ params, searchParams }: { params: Params
     },
   });
   if (!lot) notFound();
+  const demandes = await demandesDuLot(lot.id, entiteId);
+  const demandesOuvertes = demandes.filter((d) => estOuverte(d.statut)).length;
   const bailActif = lot.baux.find((b) => b.statut === "SIGNE");
   const nouveauBail = `/baux/nouveau?lotId=${lot.id}`;
 
@@ -195,6 +200,38 @@ export default async function LotPage({ params, searchParams }: { params: Params
                   <Td className="py-2!" />
                   <Td droite className="py-2!">{formatEuros(somme(lot.depenses.map((d) => d.montant)))}</Td>
                 </tr>
+              </tbody>
+            </Tableau>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader
+            titre={`Demandes de maintenance (${demandes.length})`}
+            description={demandes.length > 0 ? `${demandesOuvertes} en cours` : undefined}
+            actions={demandes.length > 0 && <ButtonLink href={`/maintenance?lotId=${lot.id}`} taille="sm" variante="secondary">Toutes les demandes</ButtonLink>}
+          />
+          {demandes.length === 0 ? (
+            <CardBody><p className="text-sm text-slate-500">Aucune demande d'intervention pour ce lot. Le locataire les dépose depuis son espace.</p></CardBody>
+          ) : (
+            <Tableau>
+              <thead className="bg-slate-50">
+                <tr>
+                  <Th>Demande</Th>
+                  <Th>Urgence</Th>
+                  <Th>Statut</Th>
+                  <Th>Déposée le</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {demandes.slice(0, 5).map((d) => (
+                  <tr key={d.id} className="hover:bg-slate-50">
+                    <Td><Link href={`/maintenance/${d.id}`} className="font-semibold text-navy-900 hover:underline">{d.objet}</Link></Td>
+                    <Td><BadgeUrgence urgence={d.urgence} /></Td>
+                    <Td><BadgeStatutMaintenance statut={d.statut} /></Td>
+                    <Td className="text-slate-600 tabular-nums">{formatDate(d.createdAt)}</Td>
+                  </tr>
+                ))}
               </tbody>
             </Tableau>
           )}
