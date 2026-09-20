@@ -63,9 +63,9 @@ export default async function DemandePage({ params, searchParams }: { params: Pa
             {possible("PLANIFIEE") && (
               <ActionDialogue
                 action={changerStatutDemande}
-                libelle="Planifier"
+                libelle={d.statut === "PLANIFIEE" ? "Replanifier" : "Planifier"}
                 variante="secondary"
-                titre="Planifier l'intervention"
+                titre={d.statut === "PLANIFIEE" ? "Reporter l'intervention" : "Planifier l'intervention"}
                 description="Indiquez la date convenue : elle est transmise au locataire."
                 caches={caches("PLANIFIEE")}
                 libelleConfirmer="Planifier l'intervention"

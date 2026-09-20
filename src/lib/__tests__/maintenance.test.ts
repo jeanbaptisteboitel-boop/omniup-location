@@ -65,6 +65,9 @@ describe("transitions de statut", () => {
     expect(transitionAutorisee("REFUSEE", "PLANIFIEE")).toBe(false);
     expect(transitionAutorisee("RESOLUE", "RESOLUE")).toBe(false);
   });
+  it("permet de reporter une intervention déjà planifiée", () => {
+    expect(transitionAutorisee("PLANIFIEE", "PLANIFIEE")).toBe(true);
+  });
   it("permet de rouvrir une demande clôturée", () => {
     expect(transitionAutorisee("RESOLUE", "PRISE_EN_COMPTE")).toBe(true);
     expect(transitionAutorisee("REFUSEE", "PRISE_EN_COMPTE")).toBe(true);

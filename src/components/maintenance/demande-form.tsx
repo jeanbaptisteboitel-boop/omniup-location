@@ -27,7 +27,7 @@ export function DemandeForm({
   baux: { id: number; libelle: string }[];
   annulerHref: string;
 }) {
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
   const [envoi, setEnvoi] = useState<string | null>(null);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
   const e = state?.errors ?? {};
@@ -94,7 +94,8 @@ export function DemandeForm({
         </div>
       )}
       <FormActions>
-        <SubmitButton enCours="Envoi…" disabled={!!envoi}>Envoyer la demande</SubmitButton>
+        {/* Le bouton reste verrouillé pendant l'envoi du fichier puis pendant l'action : pas de double dépôt. */}
+        <SubmitButton enCours="Envoi…" disabled={!!envoi || pending}>{pending ? "Envoi…" : "Envoyer la demande"}</SubmitButton>
         <ButtonLink href={annulerHref} variante="ghost">Annuler</ButtonLink>
       </FormActions>
     </form>

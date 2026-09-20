@@ -31,13 +31,14 @@ export function trierDemandes<T extends PourTri>(demandes: T[]): T[] {
 }
 
 /**
- * Changements de statut autorisés au gestionnaire. Une demande close peut être rouverte
- * (le problème revient) mais ne peut pas passer directement d'un statut clos à l'autre.
+ * Changements de statut autorisés au gestionnaire. Une demande planifiée peut l'être à nouveau
+ * (report de l'intervention) et une demande close peut être rouverte (le problème revient),
+ * mais on ne passe pas directement d'un statut clos à l'autre.
  */
 export const TRANSITIONS: Record<StatutMaintenance, StatutMaintenance[]> = {
   NOUVELLE: ["PRISE_EN_COMPTE", "PLANIFIEE", "RESOLUE", "REFUSEE"],
   PRISE_EN_COMPTE: ["PLANIFIEE", "RESOLUE", "REFUSEE"],
-  PLANIFIEE: ["PRISE_EN_COMPTE", "RESOLUE", "REFUSEE"],
+  PLANIFIEE: ["PRISE_EN_COMPTE", "PLANIFIEE", "RESOLUE", "REFUSEE"],
   RESOLUE: ["PRISE_EN_COMPTE"],
   REFUSEE: ["PRISE_EN_COMPTE"],
 };
