@@ -296,6 +296,7 @@ export async function reviserLoyer(id: number, _prev: FormState, fd: FormData): 
   const bail = await prisma.bail.findFirst({ where: { id, entiteId: await entiteCouranteId() } });
   if (!bail) return erreur(fd, "Bail introuvable.");
   if (bail.type === "MOBILITE") return erreur(fd, "Le loyer d'un bail mobilité ne peut pas être révisé.");
+  if (bail.revisionBloquee) return erreur(fd, "La révision du loyer est bloquée à la demande du bailleur : débloquez-la ou saisissez une révision manuelle.");
   if (r.data.irlAncienValeur <= 0 || r.data.irlNouveauValeur <= 0) return echec(fd, { irlNouveauValeur: "Indices invalides." });
   if (r.data.dateEffet.getTime() < bail.dateDebut.getTime()) return echec(fd, { dateEffet: "La révision ne peut pas prendre effet avant le début du bail." });
 

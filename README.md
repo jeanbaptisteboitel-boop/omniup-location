@@ -19,6 +19,8 @@ Application de gestion locative pour les bailleurs (particuliers, SCI) et leur e
 - **Demandes de maintenance** : signalées par le locataire depuis son espace, suivies par le gestionnaire jusqu'à leur résolution (voir plus bas).
 - Contrat : rédaction manuelle ou par l'assistant IA, export PDF à faire signer.
 - Révision annuelle du loyer sur l'IRL avec historique, courrier de notification ; le dernier IRL publié est récupéré automatiquement auprès de l'INSEE (service de données public, sans clé) et proposé à la signature comme à la révision.
+- **Blocage de la révision** : le bailleur qui renonce à augmenter le loyer bloque la révision en un clic, avec un motif facultatif ; elle n'est alors plus proposée ni sur le bail ni dans les tâches du tableau de bord, et se débloque de la même façon.
+- **Révision manuelle** : loyer négocié, accord amiable ou régularisation se saisissent à la main avec leur **date d'effet** et un motif ; elle reste possible même quand la révision sur indice est bloquée. Les appels de loyer non réglés à partir de cette date sont recalculés, l'historique distingue les révisions manuelles des révisions sur indice, et la dernière révision peut être annulée (le loyer revient à sa valeur antérieure).
 
 **Loyers**
 - Appels de loyer (avis d'échéance) émis automatiquement pour chaque bail signé, avec prorata temporis en début et fin de bail.

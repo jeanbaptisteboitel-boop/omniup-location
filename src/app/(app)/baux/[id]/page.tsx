@@ -10,6 +10,7 @@ import { soldeDepot } from "@/lib/sortie-bail";
 import { mailConfigure } from "@/lib/mail";
 import { OngletAssurance } from "@/components/baux/onglet-assurance";
 import { OngletSortie } from "@/components/baux/onglet-sortie";
+import { annulerRevision, bloquerRevision, debloquerRevision } from "@/actions/revisions";
 import { ajouterAnnees, aujourdhui, formatDate, formatPeriode, toISODate } from "@/lib/dates";
 import { formatEuros, formatNombre, somme } from "@/lib/montants";
 import { etatAppel } from "@/lib/loyers";
@@ -60,7 +61,8 @@ export default async function BailPage({ params, searchParams }: { params: Param
   const impayes = etats.filter((x) => x.etat.statut === "EN_RETARD" || x.etat.statut === "PARTIEL");
   const resteDu = somme(impayes.map((x) => x.etat.reste));
   const reconduit = b.statut === "SIGNE" && regle.reconductionTacite && b.dateFin.getTime() < auj.getTime();
-  const peutReviser = b.statut === "SIGNE" && b.clauseRevision && regle.revisionIRL;
+  const peutReviser = b.statut === "SIGNE" && b.clauseRevision && regle.revisionIRL && !b.revisionBloquee;
+  const revisionManuellePossible = b.statut === "SIGNE" || b.statut === "TERMINE";
   const derniereRevision = b.revisions[b.revisions.length - 1];
   const prochaineRevision = peutReviser ? ajouterAnnees(derniereRevision?.dateEffet ?? b.dateDebut, 1) : null;
   const locataire = nomsLocataires(b.locataires);
@@ -412,30 +414,80 @@ export default async function BailPage({ params, searchParams }: { params: Param
                       <tbody className="divide-y divide-slate-100">
                         <tr>
                           <Td className="tabular-nums">{formatDate(b.dateDebut)}</Td>
-                          <Td className="text-slate-600">{b.revisions[0] ? `IRL ${b.revisions[0].irlAncienTrimestre ?? ""} · ${formatNombre(b.revisions[0].irlAncienValeur)}`.replace("  ", " ") : (indice ?? "—")}</Td>
+                          <Td className="text-slate-600">{b.revisions[0]?.irlAncienValeur != null ? `IRL ${b.revisions[0].irlAncienTrimestre ?? ""} · ${formatNombre(b.revisions[0].irlAncienValeur)}`.replace("  ", " ") : (indice ?? "—")}</Td>
                           <Td droite>{formatEuros(b.revisions[0]?.ancienLoyer ?? b.loyerHC)}</Td>
                           <Td className="text-xs text-slate-500">Loyer initial</Td>
                         </tr>
-                        {b.revisions.map((r) => (
+                        {b.revisions.map((r, i) => (
                           <tr key={r.id} className="hover:bg-slate-50">
                             <Td className="tabular-nums">{formatDate(r.dateEffet)}</Td>
-                            <Td className="text-slate-600">IRL {r.irlNouveauTrimestre ?? ""}{r.irlNouveauTrimestre ? " · " : ""}{formatNombre(r.irlNouveauValeur)}</Td>
+                            <Td className="text-slate-600">
+                              {r.irlNouveauValeur != null ? (
+                                `IRL ${r.irlNouveauTrimestre ?? ""}${r.irlNouveauTrimestre ? " · " : ""}${formatNombre(r.irlNouveauValeur)}`
+                              ) : (
+                                <>
+                                  <Badge ton="gris">Manuelle</Badge>
+                                  {r.motif && <span className="ml-2 text-xs text-slate-500">{r.motif}</span>}
+                                </>
+                              )}
+                            </Td>
                             <Td droite className="font-semibold">{formatEuros(r.nouveauLoyer)}</Td>
-                            <Td droite><ButtonLink href={`/baux/${b.id}/courriers/nouveau?type=REVISION_LOYER&revisionId=${r.id}`} taille="sm" variante="secondary">Courrier</ButtonLink></Td>
+                            <Td droite>
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <ButtonLink href={`/baux/${b.id}/courriers/nouveau?type=REVISION_LOYER&revisionId=${r.id}`} taille="sm" variante="secondary">Courrier</ButtonLink>
+                                {i === b.revisions.length - 1 && (
+                                  <ConfirmForm action={annulerRevision} titre="Annuler cette révision ?" message={`Le loyer reviendra à ${formatEuros(r.ancienLoyer)} hors charges et les appels non réglés seront recalculés.`} libelleConfirmer="Annuler la révision">
+                                    <input type="hidden" name="id" value={r.id} />
+                                    <Button type="submit" variante="ghost" taille="sm">Annuler</Button>
+                                  </ConfirmForm>
+                                )}
+                              </div>
+                            </Td>
                           </tr>
                         ))}
                       </tbody>
                     </Tableau>
+                    {b.revisionBloquee && (
+                      <Alerte ton="orange" titre="Révision bloquée" className="mt-3.5">
+                        À la demande du bailleur, la révision annuelle n'est plus proposée{b.revisionBlocageLe ? ` depuis le ${formatDate(b.revisionBlocageLe)}` : ""}.
+                        {b.revisionBlocageMotif ? ` Motif : ${b.revisionBlocageMotif}` : ""} Une révision manuelle reste possible.
+                      </Alerte>
+                    )}
                     <div className="mt-3.5 flex flex-wrap items-center gap-3">
                       {peutReviser && <ButtonLink href={`/baux/${b.id}/revision`} variante="secondary">Calculer une révision</ButtonLink>}
+                      {revisionManuellePossible && <ButtonLink href={`/baux/${b.id}/revision?mode=manuelle`} variante={peutReviser ? "ghost" : "secondary"}>Réviser manuellement</ButtonLink>}
+                      {b.statut === "SIGNE" &&
+                        (b.revisionBloquee ? (
+                          <form action={debloquerRevision}>
+                            <input type="hidden" name="id" value={b.id} />
+                            <Button type="submit" variante="ghost" taille="sm">Débloquer la révision</Button>
+                          </form>
+                        ) : (
+                          <ActionDialogue
+                            action={bloquerRevision}
+                            libelle="Bloquer la révision"
+                            variante="ghost"
+                            taille="sm"
+                            titre="Bloquer la révision du loyer ?"
+                            description="Le bailleur renonce à réviser le loyer : la révision annuelle ne sera plus proposée. Vous pourrez la débloquer ou saisir une révision manuelle à tout moment."
+                            caches={{ id: String(b.id) }}
+                            libelleConfirmer="Bloquer la révision"
+                          >
+                            <Field label="Motif (facultatif)" name="motif">
+                              <Input name="motif" placeholder="ex. Le bailleur renonce à l'augmentation pour 2026" maxLength={300} />
+                            </Field>
+                          </ActionDialogue>
+                        ))}
                       <p className="text-[13px] text-slate-500">
-                        {peutReviser && prochaineRevision
-                          ? `Prochaine révision possible à partir du ${formatDate(prochaineRevision)}.`
-                          : !b.clauseRevision
-                            ? "Ce bail ne comporte pas de clause de révision annuelle."
-                            : b.statut === "TERMINE"
-                              ? "Bail terminé : le loyer n'est plus révisable."
-                              : "La révision annuelle sera possible une fois le bail signé."}
+                        {b.revisionBloquee
+                          ? "Révision annuelle bloquée par le bailleur."
+                          : peutReviser && prochaineRevision
+                            ? `Prochaine révision possible à partir du ${formatDate(prochaineRevision)}.`
+                            : !b.clauseRevision
+                              ? "Ce bail ne comporte pas de clause de révision annuelle."
+                              : b.statut === "TERMINE"
+                                ? "Bail terminé : le loyer n'est plus révisable sur l'indice."
+                                : "La révision annuelle sera possible une fois le bail signé."}
                       </p>
                     </div>
                   </>

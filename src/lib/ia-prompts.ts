@@ -37,18 +37,26 @@ Reprends fidèlement tous les montants, dates et identités de la fiche. Rédige
 ${fiche}`;
 }
 
-export function promptCourrierRevision(fiche: string, revision: { dateEffet: string; ancienLoyer: string; nouveauLoyer: string; irlAncien: string; irlNouveau: string; variation: string }, instructions: string | null): string {
-  return `Rédige la lettre par laquelle le bailleur notifie au locataire la révision annuelle de son loyer, prête à être imprimée ou envoyée par email.
+export function promptCourrierRevision(fiche: string, revision: { dateEffet: string; ancienLoyer: string; nouveauLoyer: string; irlAncien: string; irlNouveau: string; variation: string; motif?: string }, instructions: string | null): string {
+  // Une révision manuelle ne s'appuie sur aucun indice : la lettre notifie alors un nouveau loyer convenu, sans calcul ni référence à l'article 17-1.
+  const surIndice = !!revision.irlNouveau;
+  const structure = surIndice
+    ? "objet « Révision annuelle du loyer », formule d'appel, rappel de la clause de révision et de l'article 17-1 de la loi du 6 juillet 1989, calcul détaillé (loyer actuel × nouvel indice / ancien indice), nouveau montant du loyer hors charges et total mensuel charges comprises, date d'effet, formule de politesse et signature"
+    : "objet « Nouveau loyer à compter du " + revision.dateEffet + " », formule d'appel, rappel du loyer en vigueur, énoncé du motif de la révision, nouveau montant du loyer hors charges et total mensuel charges comprises, date d'effet, invitation à retourner un exemplaire signé pour accord, formule de politesse et signature. N'invoque aucun indice de référence et ne détaille aucun calcul d'indexation : cette révision est convenue entre les parties";
+  const donnees = [
+    `- Date d'effet : ${revision.dateEffet}`,
+    `- Ancien loyer hors charges : ${revision.ancienLoyer}`,
+    `- Nouveau loyer hors charges : ${revision.nouveauLoyer}`,
+    ...(surIndice
+      ? [`- Indice de référence (ancien) : ${revision.irlAncien}`, `- Nouvel indice : ${revision.irlNouveau}`, `- Variation de l'indice : ${revision.variation} %`]
+      : [`- Révision fixée d'un commun accord, sans application d'indice${revision.motif ? ` : ${revision.motif}` : ""}`]),
+  ];
+  return `Rédige la lettre par laquelle le bailleur notifie au locataire ${surIndice ? "la révision annuelle de son loyer" : "le nouveau loyer convenu"}, prête à être imprimée ou envoyée par email.
 
-Structure attendue : en-tête avec les coordonnées du bailleur puis du locataire, lieu et date (utilise [À COMPLÉTER : lieu] et [À COMPLÉTER : date] si absents), objet « Révision annuelle du loyer », formule d'appel, rappel de la clause de révision et de l'article 17-1 de la loi du 6 juillet 1989, calcul détaillé (loyer actuel × nouvel indice / ancien indice), nouveau montant du loyer hors charges et total mensuel charges comprises, date d'effet, formule de politesse et signature.
+Structure attendue : en-tête avec les coordonnées du bailleur puis du locataire, lieu et date (utilise [À COMPLÉTER : lieu] et [À COMPLÉTER : date] si absents), ${structure}.
 
 Données de la révision :
-- Date d'effet : ${revision.dateEffet}
-- Ancien loyer hors charges : ${revision.ancienLoyer}
-- Nouveau loyer hors charges : ${revision.nouveauLoyer}
-- Indice de référence (ancien) : ${revision.irlAncien}
-- Nouvel indice : ${revision.irlNouveau}
-- Variation de l'indice : ${revision.variation} %${instructions ? `\n\nInstructions complémentaires de l'utilisateur : ${instructions}` : ""}
+${donnees.join("\n")}${instructions ? `\n\nInstructions complémentaires de l'utilisateur : ${instructions}` : ""}
 
 # FICHE DU BAIL
 ${fiche}`;

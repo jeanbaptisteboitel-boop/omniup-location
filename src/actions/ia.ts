@@ -50,9 +50,14 @@ export async function genererCourrier(bailId: number, _prev: FormState, fd: Form
           dateEffet: formatDateLongue(revision.dateEffet),
           ancienLoyer: formatEuros(revision.ancienLoyer),
           nouveauLoyer: formatEuros(revision.nouveauLoyer),
-          irlAncien: `${revision.irlAncienTrimestre ?? ""} ${String(revision.irlAncienValeur).replace(".", ",")}`.trim(),
-          irlNouveau: `${revision.irlNouveauTrimestre ?? ""} ${String(revision.irlNouveauValeur).replace(".", ",")}`.trim(),
-          variation: String(variationIRL(revision.irlAncienValeur, revision.irlNouveauValeur)).replace(".", ","),
+          // Une révision manuelle n'a pas d'indice : le courrier s'appuie alors sur le motif saisi.
+          irlAncien: revision.irlAncienValeur !== null ? `${revision.irlAncienTrimestre ?? ""} ${String(revision.irlAncienValeur).replace(".", ",")}`.trim() : "",
+          irlNouveau: revision.irlNouveauValeur !== null ? `${revision.irlNouveauTrimestre ?? ""} ${String(revision.irlNouveauValeur).replace(".", ",")}`.trim() : "",
+          variation:
+            revision.irlAncienValeur !== null && revision.irlNouveauValeur !== null
+              ? String(variationIRL(revision.irlAncienValeur, revision.irlNouveauValeur)).replace(".", ",")
+              : "",
+          motif: revision.motif ?? "",
         },
         instructions,
       );

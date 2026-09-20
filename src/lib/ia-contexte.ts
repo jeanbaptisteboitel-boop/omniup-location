@@ -68,7 +68,9 @@ export async function ficheBail(bailId: number): Promise<{ fiche: string; bail: 
     bail.depotGarantie > 0 ? `Dépôt de garantie : ${formatEuros(bail.depotGarantie)}` : "Dépôt de garantie : aucun",
     regle.revisionIRL
       ? bail.clauseRevision
-        ? `Révision annuelle du loyer selon l'IRL : oui${bail.irlTrimestre ? ` — indice de référence ${bail.irlTrimestre}${bail.irlValeur ? ` : ${String(bail.irlValeur).replace(".", ",")}` : ""}` : " — indice de référence [À COMPLÉTER]"}`
+        ? bail.revisionBloquee
+          ? `Révision annuelle du loyer : bloquée à la demande du bailleur${bail.revisionBlocageMotif ? ` (${bail.revisionBlocageMotif})` : ""} — le bail comporte une clause de révision mais elle n'est pas appliquée`
+          : `Révision annuelle du loyer selon l'IRL : oui${bail.irlTrimestre ? ` — indice de référence ${bail.irlTrimestre}${bail.irlValeur ? ` : ${String(bail.irlValeur).replace(".", ",")}` : ""}` : " — indice de référence [À COMPLÉTER]"}`
         : "Révision annuelle du loyer : aucune clause"
       : "Révision du loyer : non applicable (bail mobilité)",
     bail.notes ? `Observations / clauses particulières souhaitées : ${bail.notes}` : null,

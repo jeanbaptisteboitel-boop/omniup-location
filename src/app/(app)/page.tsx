@@ -51,7 +51,7 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
   const lotsLoues = lots.filter((l) => l.baux.length > 0).length;
   const lotsVacants = lots.length - lotsLoues;
   const bauxEnCours = baux.filter((b) => b.statut === "BROUILLON" || b.statut === "EN_SIGNATURE");
-  const revisionsDues = baux.filter((b) => b.statut === "SIGNE" && b.clauseRevision && b.type !== "MOBILITE" && ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1).getTime() <= auj.getTime());
+  const revisionsDues = baux.filter((b) => b.statut === "SIGNE" && b.clauseRevision && !b.revisionBloquee && b.type !== "MOBILITE" && ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1).getTime() <= auj.getTime());
   // Sortie du locataire et obligations associées : assurance à réclamer, départ à préparer, dépôt à restituer.
   const assurancesAReclamer = baux.filter((b) => b.statut === "SIGNE" && etatAssurance(b.assurances, auj).statut !== "A_JOUR");
   const departsAVenir = baux.filter((b) => b.statut === "SIGNE" && !!b.congeDateDepart);

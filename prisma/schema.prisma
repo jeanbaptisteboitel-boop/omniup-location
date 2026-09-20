@@ -349,6 +349,10 @@ model Bail {
   jourEcheance       Int              @default(1)
   motifMobilite      String?
   clauseRevision     Boolean          @default(true)
+  /// Révision du loyer suspendue à la demande du bailleur : la révision annuelle n'est plus proposée.
+  revisionBloquee    Boolean          @default(false)
+  revisionBlocageLe  DateTime?
+  revisionBlocageMotif String?
   irlTrimestre       String?
   irlValeur          Float?
   texteContrat       String?
@@ -402,10 +406,14 @@ model RevisionLoyer {
   dateEffet           DateTime
   ancienLoyer         Float
   nouveauLoyer        Float
+  /// Indices de référence : absents lorsque la révision est saisie manuellement.
   irlAncienTrimestre  String?
-  irlAncienValeur     Float
+  irlAncienValeur     Float?
   irlNouveauTrimestre String?
-  irlNouveauValeur    Float
+  irlNouveauValeur    Float?
+  /// Révision saisie à la main (accord amiable, loyer négocié, régularisation) plutôt que calculée sur l'indice.
+  manuelle            Boolean  @default(false)
+  motif               String?
   createdAt           DateTime @default(now())
 }
 
