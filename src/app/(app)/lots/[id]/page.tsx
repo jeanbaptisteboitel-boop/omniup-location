@@ -16,6 +16,7 @@ import { demandesDuLot, estOuverte } from "@/lib/maintenance";
 import { BadgeStatutMaintenance, BadgeUrgence } from "@/components/maintenance/badges";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
 import { libelleTaux, montantsMensuels, optionTvaEffective } from "@/lib/tva";
+import { CarteDpe } from "@/components/patrimoine/carte-dpe";
 
 export default async function LotPage({ params, searchParams }: { params: ParamsId; searchParams: SearchParams }) {
   const id = await idDepuis(params);
@@ -84,6 +85,7 @@ export default async function LotPage({ params, searchParams }: { params: Params
                         ? <span className="text-amber-800">Option cochée sur le lot, mais l'immeuble n'a pas opté : sans effet</span>
                         : "Exonéré (pas d'option)",
                   },
+                  { label: "Performance énergétique", valeur: lot.dpeClasseEnergie ? `Classe ${lot.dpeClasseEnergie}${lot.dpeClasseGes ? ` · GES ${lot.dpeClasseGes}` : ""}` : <span className="text-amber-800">DPE non renseigné</span> },
                   { label: "Adresse", valeur: adresseSurUneLigne(lot) },
                   ...(lot.description ? [{ label: "Description", valeur: <span className="whitespace-pre-line">{lot.description}</span> }] : []),
                 ]}
@@ -92,6 +94,7 @@ export default async function LotPage({ params, searchParams }: { params: Params
           </Card>
 
           <div className="flex flex-col gap-6">
+            <CarteDpe lot={lot} />
             <Card>
               <CardHeader titre="Bail en cours" />
               {bailActif ? (

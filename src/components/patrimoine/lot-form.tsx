@@ -5,6 +5,7 @@ import type { Lot } from "@prisma/client";
 import type { FormState } from "@/lib/forms";
 import { options, TYPES_LOT } from "@/lib/libelles";
 import { montantPourSaisie } from "@/lib/montants";
+import { CLASSES, LIBELLES_CLASSE } from "@/lib/dpe";
 import { Checkbox, Field, FormActions, FormMessage, Input, Select, SubmitButton, Textarea, valeurInitiale } from "@/components/form";
 import { ButtonLink } from "@/components/ui";
 
@@ -128,8 +129,31 @@ export function LotForm({
             </Field>
           )}
         </fieldset>
+        <fieldset className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+          <legend className="px-1 text-sm font-semibold text-navy-900">Diagnostic de performance énergétique</legend>
+          <p className="mb-3 text-[13px] text-slate-600">
+            Le DPE est annexé au contrat de location. Son absence n&apos;empêche pas de louer, mais elle est signalée sur la fiche du lot et sur les baux.
+          </p>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <Field label="Étiquette énergie" name="dpeClasseEnergie" error={e.dpeClasseEnergie}>
+              <Select name="dpeClasseEnergie" defaultValue={valeurInitiale(state, "dpeClasseEnergie", initial.dpeClasseEnergie)} vide="Non renseignée" options={CLASSES.map((c) => ({ value: c, label: LIBELLES_CLASSE[c] }))} />
+            </Field>
+            <Field label="Étiquette climat (GES)" name="dpeClasseGes" error={e.dpeClasseGes}>
+              <Select name="dpeClasseGes" defaultValue={valeurInitiale(state, "dpeClasseGes", initial.dpeClasseGes)} vide="Non renseignée" options={CLASSES.map((c) => ({ value: c, label: c }))} />
+            </Field>
+            <Field label="Consommation (kWh/m²/an)" name="dpeConsommation" error={e.dpeConsommation} hint="Énergie primaire. Au-delà de 450, le logement n'est plus décent.">
+              <Input name="dpeConsommation" inputMode="decimal" defaultValue={valeurInitiale(state, "dpeConsommation", montantPourSaisie(initial.dpeConsommation))} invalide={!!e.dpeConsommation} placeholder="ex. 210" />
+            </Field>
+            <Field label="Émissions (kg CO₂/m²/an)" name="dpeEmissions" error={e.dpeEmissions}>
+              <Input name="dpeEmissions" inputMode="decimal" defaultValue={valeurInitiale(state, "dpeEmissions", montantPourSaisie(initial.dpeEmissions))} invalide={!!e.dpeEmissions} placeholder="ex. 32" />
+            </Field>
+            <Field label="Réalisé le" name="dpeRealiseLe" error={e.dpeRealiseLe} hint="Valable dix ans ; les DPE antérieurs au 1er juillet 2021 ne le sont plus.">
+              <Input name="dpeRealiseLe" type="date" defaultValue={valeurInitiale(state, "dpeRealiseLe", initial.dpeRealiseLe ? new Date(initial.dpeRealiseLe).toISOString().slice(0, 10) : "")} invalide={!!e.dpeRealiseLe} />
+            </Field>
+          </div>
+        </fieldset>
         <Field label="Description" name="description" error={e.description} className="sm:col-span-2">
-          <Textarea name="description" rows={3} defaultValue={valeurInitiale(state, "description", initial.description)} placeholder="Équipements, parking, cave, DPE…" />
+          <Textarea name="description" rows={3} defaultValue={valeurInitiale(state, "description", initial.description)} placeholder="Équipements, parking, cave…" />
         </Field>
       </div>
       <FormActions>

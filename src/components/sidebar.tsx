@@ -12,6 +12,7 @@ import { changerEntite } from "@/actions/entites";
 import { EntiteSwitcher } from "./entites/entite-switcher";
 import { IconeMaintenance } from "./maintenance/icone";
 import { IconeAide } from "./tickets/icone";
+import { IconeCandidature } from "./candidatures/icone";
 import { compterOuvertes } from "@/lib/maintenance";
 
 type Lien = { href: string; libelle: ReactNode; icone: ReactNode };
@@ -29,6 +30,7 @@ const GROUPES: { titre: string | null; liens: Lien[] }[] = [
   {
     titre: "Location",
     liens: [
+      { href: "/candidatures", libelle: "Candidatures", icone: <IconeCandidature /> },
       { href: "/locataires", libelle: "Locataires", icone: <IconeLocataires /> },
       { href: "/baux", libelle: "Baux", icone: <IconeBail /> },
       { href: "/loyers", libelle: "Loyers et quittances", icone: <IconeEuro /> },

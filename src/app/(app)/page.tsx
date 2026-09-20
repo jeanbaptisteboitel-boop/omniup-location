@@ -14,6 +14,7 @@ import { BadgeStatutAppel } from "@/components/loyers/badge-statut";
 import { entiteCourante } from "@/lib/entite";
 import { etatAssurance } from "@/lib/assurances";
 import { dateLimiteRestitution, soldeDepot } from "@/lib/sortie-bail";
+import { aPurger, nomDossier } from "@/lib/candidatures";
 import type { SearchParams } from "@/lib/params";
 import { Flash } from "@/components/flash";
 import { includeLocataires, nomsLocataires } from "@/lib/locataires";
@@ -32,13 +33,14 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
   const periode = periodeDe(auj);
   const entite = await entiteCourante();
   const entiteId = entite.id;
-  const [lots, nbLocataires, baux, appels, depensesAnnee, nbImmeubles] = await Promise.all([
+  const [lots, nbLocataires, baux, appels, depensesAnnee, nbImmeubles, candidatures] = await Promise.all([
     prisma.lot.findMany({ where: { entiteId }, select: { id: true, baux: { where: { statut: "SIGNE" }, select: { id: true } } } }),
     prisma.locataire.count({ where: { entiteId } }),
     prisma.bail.findMany({ where: { entiteId }, include: { lot: true, locataires: includeLocataires, revisions: { orderBy: { dateEffet: "desc" }, take: 1 }, assurances: { select: { dateEcheance: true } }, retenuesDepot: true } }),
     prisma.appelLoyer.findMany({ where: { bail: { entiteId } }, include: includeAppel, orderBy: [{ periode: "desc" }, { id: "desc" }] }),
     prisma.depense.aggregate({ where: { entiteId, date: { gte: jourUTC(annee, 1, 1), lt: jourUTC(annee + 1, 1, 1) } }, _sum: { montant: true }, _count: { _all: true } }),
     prisma.immeuble.count({ where: { entiteId } }),
+    prisma.candidature.findMany({ where: { entiteId }, include: { lot: true, dossiers: { where: { role: "CANDIDAT" }, orderBy: { createdAt: "asc" } } } }),
   ]);
 
   const etats = appels.map((a) => ({ a, etat: etatAppel(a, auj) }));
@@ -119,6 +121,28 @@ export default async function TableauDeBord({ searchParams }: { searchParams: Se
       n: formatEuros(solde.restituable),
       texte: "dépôt de garantie à restituer",
       detail: `${b.lot.nom} · ${nomsLocataires(b.locataires)} · avant le ${formatDate(limite)}`,
+    });
+  }
+
+  for (const c of candidatures.filter((x) => x.statut === "DEPOSEE")) {
+    taches.push({
+      cle: `cand-${c.id}`,
+      href: `/candidatures/${c.id}`,
+      ton: "violet",
+      n: c.lot?.nom ?? "Candidature",
+      texte: "dossier de candidature à étudier",
+      detail: `${c.dossiers.map(nomDossier).join(", ")} · remis le ${formatDate(c.deposeLe)}`,
+    });
+  }
+  const candidaturesAPurger = candidatures.filter((c) => aPurger(c, auj));
+  if (candidaturesAPurger.length) {
+    taches.push({
+      cle: "cand-purge",
+      href: "/candidatures",
+      ton: "orange",
+      n: candidaturesAPurger.length,
+      texte: `dossier${pluriel(candidaturesAPurger.length)} de candidature à détruire`,
+      detail: "candidats non retenus depuis plus de trois mois : les pièces n'ont plus à être conservées",
     });
   }
   

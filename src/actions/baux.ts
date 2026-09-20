@@ -21,6 +21,7 @@ import { entiteCouranteId } from "@/lib/entite";
 import { emailsLocataires, includeLocataires, nomsLocataires } from "@/lib/locataires";
 import { confirmerEnvoiDirect, enregistrerFichier, supprimerFichier, typeMimeDe, verifierFichier } from "@/lib/storage";
 import type { FichierTeleverse } from "@/lib/envoi-direct";
+import { loyerGele, MOTIF_GEL } from "@/lib/dpe";
 import { exigerEcriture } from "@/lib/droits";
 
 const schemaBail = z.object({
@@ -168,6 +169,29 @@ export async function retourBrouillon(fd: FormData): Promise<void> {
   redirect(avecMessage(`/baux/${id}`, "Bail remis en brouillon."));
 }
 
+/**
+ * Conclusion du bail : les candidats dont la fiche locataire figure au bail deviennent locataires.
+ * La candidature passe alors en « bail signé » et sort des dossiers à traiter.
+ */
+async function muterCandidats(bailId: number): Promise<boolean> {
+  const bail = await prisma.bail.findUnique({ where: { id: bailId }, select: { entiteId: true, locataires: { select: { id: true } } } });
+  if (!bail || bail.locataires.length === 0) return false;
+  const ids = bail.locataires.map((l) => l.id);
+  const candidature = await prisma.candidature.findFirst({
+    where: {
+      entiteId: bail.entiteId,
+      statut: { in: ["ACCEPTEE", "DEPOSEE", "TRANSMISE"] },
+      dossiers: { some: { role: "CANDIDAT", locataireId: { in: ids } } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!candidature) return false;
+  await prisma.candidature.update({ where: { id: candidature.id }, data: { statut: "CONCLUE", bailId, concluLe: new Date() } });
+  revalidatePath("/candidatures");
+  revalidatePath(`/candidatures/${candidature.id}`);
+  return true;
+}
+
 export async function marquerSigne(fd: FormData): Promise<void> {
   await exigerEcriture();
   const id = Number(fd.get("id"));
@@ -191,12 +215,13 @@ export async function marquerSigne(fd: FormData): Promise<void> {
     data: { statut: "SIGNE", dateSignature: dateSignature.data ?? aujourdhui(), signatureRef: ref ?? bail.signatureRef },
   });
   const crees = await synchroniserAppelsLoyer({ bailId: id });
+  const mute = await muterCandidats(id);
   revalidatePath(`/baux/${id}`);
   revalidatePath("/baux");
   revalidatePath("/loyers");
   revalidatePath(`/lots/${bail.lotId}`);
   const detail = crees.length ? ` ${crees.length} appel${crees.length > 1 ? "s" : ""} de loyer émis.` : " Les appels de loyer seront émis automatiquement à l'approche de chaque échéance.";
-  redirect(avecMessage(`/baux/${id}`, `Bail signé.${detail}`));
+  redirect(avecMessage(`/baux/${id}`, `Bail signé.${detail}${mute ? " Candidature close : le candidat est désormais locataire." : ""}`));
 }
 
 export async function cloturerBail(fd: FormData): Promise<void> {
@@ -297,6 +322,8 @@ export async function reviserLoyer(id: number, _prev: FormState, fd: FormData): 
   if (!bail) return erreur(fd, "Bail introuvable.");
   if (bail.type === "MOBILITE") return erreur(fd, "Le loyer d'un bail mobilité ne peut pas être révisé.");
   if (bail.revisionBloquee) return erreur(fd, "La révision du loyer est bloquée à la demande du bailleur : débloquez-la ou saisissez une révision manuelle.");
+  const lotDpe = await prisma.lot.findUnique({ where: { id: bail.lotId }, select: { dpeClasseEnergie: true, dpeClasseGes: true, dpeConsommation: true, dpeEmissions: true, dpeRealiseLe: true } });
+  if (lotDpe && loyerGele(lotDpe)) return erreur(fd, MOTIF_GEL);
   if (r.data.irlAncienValeur <= 0 || r.data.irlNouveauValeur <= 0) return echec(fd, { irlNouveauValeur: "Indices invalides." });
   if (r.data.dateEffet.getTime() < bail.dateDebut.getTime()) return echec(fd, { dateEffet: "La révision ne peut pas prendre effet avant le début du bail." });
 

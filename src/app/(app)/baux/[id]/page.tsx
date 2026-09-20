@@ -5,6 +5,7 @@ import { idDepuis, texteParam, type ParamsId, type SearchParams } from "@/lib/pa
 import { CATEGORIES_MODELE, TYPES_BAIL, TYPES_BAIL_COURT, TYPES_COURRIER, TYPES_LOT, adresseSurUneLigne, nomComplet } from "@/lib/libelles";
 import { REGLES_BAIL, dureeEnMois } from "@/lib/bail-regles";
 import { libelleTaux, montantsMensuels, usageHabitation } from "@/lib/tva";
+import { etatDpe, loyerGele, MOTIF_GEL } from "@/lib/dpe";
 import { LIBELLES_ASSURANCE, TONS_ASSURANCE, etatAssurance } from "@/lib/assurances";
 import { soldeDepot } from "@/lib/sortie-bail";
 import { mailConfigure } from "@/lib/mail";
@@ -61,7 +62,10 @@ export default async function BailPage({ params, searchParams }: { params: Param
   const impayes = etats.filter((x) => x.etat.statut === "EN_RETARD" || x.etat.statut === "PARTIEL");
   const resteDu = somme(impayes.map((x) => x.etat.reste));
   const reconduit = b.statut === "SIGNE" && regle.reconductionTacite && b.dateFin.getTime() < auj.getTime();
-  const peutReviser = b.statut === "SIGNE" && b.clauseRevision && regle.revisionIRL && !b.revisionBloquee;
+  // Le DPE ne bloque jamais la location ; en revanche un logement classé F ou G a son loyer gelé.
+  const etatDpeLot = etatDpe(b.lot, auj);
+  const loyerGeleLot = loyerGele(b.lot);
+  const peutReviser = b.statut === "SIGNE" && b.clauseRevision && regle.revisionIRL && !b.revisionBloquee && !loyerGeleLot;
   const revisionManuellePossible = b.statut === "SIGNE" || b.statut === "TERMINE";
   const derniereRevision = b.revisions[b.revisions.length - 1];
   const prochaineRevision = peutReviser ? ajouterAnnees(derniereRevision?.dateEffet ?? b.dateDebut, 1) : null;
@@ -229,6 +233,16 @@ export default async function BailPage({ params, searchParams }: { params: Param
 
             {onglet === "contrat" && (
               <>
+                {etatDpeLot !== "VALIDE" && (
+                  <div className="px-5 pt-5">
+                    <Alerte ton="orange" titre={etatDpeLot === "MANQUANT" ? "DPE à annexer au contrat" : "DPE expiré"}>
+                      {etatDpeLot === "MANQUANT"
+                        ? "Le diagnostic de performance énergétique fait partie des documents annexés au bail. Son absence n'empêche ni de conclure ni d'exécuter le contrat : renseignez-le sur la fiche du lot dès qu'il est réalisé."
+                        : "Le diagnostic annexé au bail n'est plus valable. Faites-en établir un nouveau ; le bail en cours reste valable."}{" "}
+                      <Link href={`/lots/${b.lot.id}`} className="font-semibold underline underline-offset-2">Fiche du lot</Link>
+                    </Alerte>
+                  </div>
+                )}
                 <div className="p-5">
                   <Infos
                     colonnes={3}
@@ -238,6 +252,7 @@ export default async function BailPage({ params, searchParams }: { params: Param
                       { label: "Début", valeur: formatDate(b.dateDebut) },
                       { label: "Fin", valeur: `${formatDate(b.dateFin)}${reconduit ? " · reconduit tacitement" : ""}` },
                       ...(b.dateFinEffective ? [{ label: "Fin effective", valeur: formatDate(b.dateFinEffective) }] : []),
+                      { label: "Performance énergétique", valeur: b.lot.dpeClasseEnergie ? `Classe ${b.lot.dpeClasseEnergie}${b.lot.dpeClasseGes ? ` · GES ${b.lot.dpeClasseGes}` : ""}${loyerGeleLot ? " · loyer gelé" : ""}` : <span className="text-amber-800">DPE non renseigné</span> },
                       { label: "Loyer hors charges", valeur: formatEuros(b.loyerHC) },
                       { label: "Charges", valeur: b.charges > 0 ? `${formatEuros(b.charges)} · ${b.chargesForfait ? "forfait" : "provision régularisée chaque année"}` : "Aucune" },
                       { label: "TVA", valeur: b.tauxTva > 0 ? `${libelleTaux(b.tauxTva)} sur le loyer et les charges, soit ${formatEuros(mensuel.tva)} par mois` : usageHabitation(b.type) ? "Exonéré (usage d'habitation)" : "Exonéré (sans option)" },
@@ -447,6 +462,11 @@ export default async function BailPage({ params, searchParams }: { params: Param
                         ))}
                       </tbody>
                     </Tableau>
+                    {loyerGeleLot && (
+                      <Alerte ton="orange" titre="Loyer gelé" className="mt-3.5">
+                        {MOTIF_GEL} Une révision manuelle reste possible.
+                      </Alerte>
+                    )}
                     {b.revisionBloquee && (
                       <Alerte ton="orange" titre="Révision bloquée" className="mt-3.5">
                         À la demande du bailleur, la révision annuelle n'est plus proposée{b.revisionBlocageLe ? ` depuis le ${formatDate(b.revisionBlocageLe)}` : ""}.

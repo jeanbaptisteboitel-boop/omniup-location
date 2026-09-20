@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { idDepuis, texteParam, type ParamsId, type SearchParams } from "@/lib/params";
 import { avecMessage } from "@/lib/erreurs";
 import { REGLES_BAIL } from "@/lib/bail-regles";
+import { loyerGele, MOTIF_GEL } from "@/lib/dpe";
 import { ajouterAnnees, aujourdhui, debutMois, formatDate, periodeSuivante, periodeDe, toISODate } from "@/lib/dates";
 import { reviserLoyer } from "@/actions/baux";
 import { reviserManuellement } from "@/actions/revisions";
@@ -24,7 +25,9 @@ export default async function RevisionPage({ params, searchParams }: { params: P
   if (b.statut === "BROUILLON" || b.statut === "EN_SIGNATURE") {
     redirect(avecMessage(`/baux/${id}`, "Modifiez directement le loyer tant que le bail n'est pas signé.", "erreur"));
   }
-  const surIndice = REGLES_BAIL[b.type].revisionIRL && b.clauseRevision && !b.revisionBloquee && b.statut === "SIGNE";
+  // Loi Climat et Résilience : le loyer d'un logement classé F ou G ne peut plus être indexé.
+  const gele = loyerGele(b.lot);
+  const surIndice = REGLES_BAIL[b.type].revisionIRL && b.clauseRevision && !b.revisionBloquee && !gele && b.statut === "SIGNE";
   const manuelle = texteParam(sp, "mode") === "manuelle" || !surIndice;
   const proposeeIndice = ajouterAnnees(b.revisions[0]?.dateEffet ?? b.dateDebut, 1);
   // Révision manuelle : le mois suivant par défaut, pour que les appels déjà émis ne soient pas repris.
@@ -53,6 +56,11 @@ export default async function RevisionPage({ params, searchParams }: { params: P
             description="Révision saisie à la main : accord amiable, loyer négocié, régularisation ou baisse consentie. Elle est conservée dans l'historique et sert de base au courrier au locataire."
           />
           <CardBody>
+            {gele && (
+              <Alerte ton="orange" titre="Loyer gelé" className="mb-4">
+                {MOTIF_GEL} Une révision manuelle reste possible, notamment pour diminuer le loyer ou l&apos;ajuster après travaux.
+              </Alerte>
+            )}
             {b.revisionBloquee && (
               <Alerte ton="orange" className="mb-4">
                 La révision annuelle est bloquée à la demande du bailleur{b.revisionBlocageMotif ? ` (${b.revisionBlocageMotif})` : ""} : seule une révision manuelle est possible.

@@ -26,23 +26,24 @@ enum TypeEntite {
 /// Entité gérée : une personne ou une société disposant de ses propres bailleurs, lots et locataires.
 /// Une seule entité par défaut ; la gestion de plusieurs entités se débloque dans les réglages.
 model Entite {
-  id         Int              @id @default(autoincrement())
-  nom        String
-  type       TypeEntite       @default(AUTRE)
-  notes      String?
-  bailleurs  Bailleur[]
-  immeubles  Immeuble[]
-  lots       Lot[]
-  locataires Locataire[]
-  baux       Bail[]
-  depenses   Depense[]
-  emprunts   Emprunt[]
-  documents  DocumentGenere[]
-  demandes   DemandeMaintenance[]
-  tickets    Ticket[]
-  acces      AccesEntite[]
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id           Int                  @id @default(autoincrement())
+  nom          String
+  type         TypeEntite           @default(AUTRE)
+  notes        String?
+  bailleurs    Bailleur[]
+  immeubles    Immeuble[]
+  lots         Lot[]
+  locataires   Locataire[]
+  baux         Bail[]
+  depenses     Depense[]
+  emprunts     Emprunt[]
+  documents    DocumentGenere[]
+  demandes     DemandeMaintenance[]
+  tickets      Ticket[]
+  candidatures Candidature[]
+  acces        AccesEntite[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -216,10 +217,21 @@ enum TypeLot {
 }
 
 /// Lot : le bien loué (appartement ou maison).
+/// Étiquette du diagnostic de performance énergétique (énergie et climat).
+enum ClasseEnergie {
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+}
+
 model Lot {
-  id                 Int       @id @default(autoincrement())
+  id                 Int                  @id @default(autoincrement())
   entiteId           Int
-  entite             Entite    @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  entite             Entite               @relation(fields: [entiteId], references: [id], onDelete: Restrict)
   type               TypeLot
   nom                String
   adresse            String
@@ -229,23 +241,37 @@ model Lot {
   etage              String?
   surface            Float?
   nbPieces           Int?
-  meuble             Boolean   @default(false)
+  meuble             Boolean              @default(false)
   loyerIndicatif     Float?
   chargesIndicatives Float?
   /// Loyers du lot soumis à la TVA (option exercée pour ce local, effective si l'immeuble a lui-même opté).
-  optionTva          Boolean   @default(false)
+  optionTva          Boolean              @default(false)
   optionTvaDate      DateTime?
   description        String?
+  /// Diagnostic de performance énergétique : obligatoire et annexé au bail (article 3-3 de la loi
+  /// du 6 juillet 1989), mais son absence n'empêche pas de louer. Il conditionne en revanche la
+  /// décence du logement et le gel du loyer des classes F et G.
+  dpeClasseEnergie   ClasseEnergie?
+  dpeClasseGes       ClasseEnergie?
+  /// Consommation en kWh/m²/an (énergie primaire) et émissions en kg CO2/m²/an.
+  dpeConsommation    Float?
+  dpeEmissions       Float?
+  dpeRealiseLe       DateTime?
+  dpeNomFichier      String?
+  dpeChemin          String?
+  dpeMimeType        String?
+  dpeTaille          Int?
   bailleurId         Int?
-  bailleur           Bailleur? @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
+  bailleur           Bailleur?            @relation(fields: [bailleurId], references: [id], onDelete: SetNull)
   immeubleId         Int?
-  immeuble           Immeuble? @relation(fields: [immeubleId], references: [id], onDelete: SetNull)
+  immeuble           Immeuble?            @relation(fields: [immeubleId], references: [id], onDelete: SetNull)
   baux               Bail[]
   depenses           Depense[]
   emprunts           Emprunt[]
   demandes           DemandeMaintenance[]
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  candidatures       Candidature[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 
   @@index([entiteId])
 }
@@ -255,32 +281,34 @@ model Lot {
 // ---------------------------------------------------------------------------
 
 model Locataire {
-  id                Int        @id @default(autoincrement())
-  entiteId          Int
-  entite            Entite     @relation(fields: [entiteId], references: [id], onDelete: Restrict)
-  civilite          String?
-  nom               String
-  prenom            String
-  dateNaissance     DateTime?
-  adresse           String?
-  complementAdresse String?
-  codePostal        String?
-  ville             String?
-  telephone         String?
-  email             String?
-  notes             String?
-  documents         Document[]
+  id                  Int                    @id @default(autoincrement())
+  entiteId            Int
+  entite              Entite                 @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  civilite            String?
+  nom                 String
+  prenom              String
+  dateNaissance       DateTime?
+  adresse             String?
+  complementAdresse   String?
+  codePostal          String?
+  ville               String?
+  telephone           String?
+  email               String?
+  notes               String?
+  documents           Document[]
   /// Baux dont la personne est titulaire (seule ou avec d'autres locataires : couple, colocation).
-  baux              Bail[]     @relation("BailLocataires")
-  attestations      AttestationAssurance[]
-  demandes          DemandeMaintenance[]
+  baux                Bail[]                 @relation("BailLocataires")
+  attestations        AttestationAssurance[]
+  demandes            DemandeMaintenance[]
+  /// Dossiers de candidature dont cette personne est issue.
+  dossiersCandidature DossierCandidature[]
   /// Espace locataire : jeton d'accès personnel (lien), création, envoi par email et dernière visite.
-  accesJeton        String?    @unique
-  accesCreeLe       DateTime?
-  accesEnvoyeLe     DateTime?
-  accesDernierLe    DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  accesJeton          String?                @unique
+  accesCreeLe         DateTime?
+  accesEnvoyeLe       DateTime?
+  accesDernierLe      DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@index([entiteId])
 }
@@ -330,35 +358,35 @@ enum StatutBail {
 
 /// Bail : lien entre un lot et un ou plusieurs locataires (titulaires solidaires : couple, colocation).
 model Bail {
-  id                 Int              @id @default(autoincrement())
-  entiteId           Int
-  entite             Entite           @relation(fields: [entiteId], references: [id], onDelete: Restrict)
-  lotId              Int
-  lot                Lot              @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  locataires         Locataire[]      @relation("BailLocataires")
-  type               TypeBail
-  statut             StatutBail       @default(BROUILLON)
-  dateDebut          DateTime
-  dateFin            DateTime
-  loyerHC            Float
-  charges            Float            @default(0)
-  chargesForfait     Boolean          @default(false)
+  id                   Int                    @id @default(autoincrement())
+  entiteId             Int
+  entite               Entite                 @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  lotId                Int
+  lot                  Lot                    @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  locataires           Locataire[]            @relation("BailLocataires")
+  type                 TypeBail
+  statut               StatutBail             @default(BROUILLON)
+  dateDebut            DateTime
+  dateFin              DateTime
+  loyerHC              Float
+  charges              Float                  @default(0)
+  chargesForfait       Boolean                @default(false)
   /// Taux de TVA appliqué au loyer et aux charges (0 = exonéré ; 10 ou 20).
-  tauxTva            Float            @default(0)
-  depotGarantie      Float            @default(0)
-  jourEcheance       Int              @default(1)
-  motifMobilite      String?
-  clauseRevision     Boolean          @default(true)
+  tauxTva              Float                  @default(0)
+  depotGarantie        Float                  @default(0)
+  jourEcheance         Int                    @default(1)
+  motifMobilite        String?
+  clauseRevision       Boolean                @default(true)
   /// Révision du loyer suspendue à la demande du bailleur : la révision annuelle n'est plus proposée.
-  revisionBloquee    Boolean          @default(false)
-  revisionBlocageLe  DateTime?
+  revisionBloquee      Boolean                @default(false)
+  revisionBlocageLe    DateTime?
   revisionBlocageMotif String?
-  irlTrimestre       String?
-  irlValeur          Float?
-  texteContrat       String?
-  signatureRef       String?
-  dateSignature      DateTime?
-  dateFinEffective   DateTime?
+  irlTrimestre         String?
+  irlValeur            Float?
+  texteContrat         String?
+  signatureRef         String?
+  dateSignature        DateTime?
+  dateFinEffective     DateTime?
   /// Dépôt de garantie : encaissement, restitution et retenues justifiées (état des lieux de sortie).
   depotRecuLe          DateTime?
   depotRecuMontant     Float?
@@ -382,18 +410,20 @@ model Bail {
   assuranceRelanceLe   DateTime?
   demandes             DemandeMaintenance[]
   /// Exemplaire signé du contrat (PDF ou image déposé par le gestionnaire), consultable dans l'espace locataire.
-  contratSigneChemin String?
-  contratSigneNom    String?
-  contratSigneMime   String?
-  contratSigneTaille Int?
-  contratSigneLe     DateTime?
-  notes              String?
-  appels             AppelLoyer[]
-  revisions          RevisionLoyer[]
-  courriers          Courrier[]
-  documents          DocumentGenere[]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  contratSigneChemin   String?
+  contratSigneNom      String?
+  contratSigneMime     String?
+  contratSigneTaille   Int?
+  contratSigneLe       DateTime?
+  notes                String?
+  appels               AppelLoyer[]
+  revisions            RevisionLoyer[]
+  courriers            Courrier[]
+  /// Candidature à l'origine du bail : sa signature mute les candidats en locataires.
+  candidatures         Candidature[]
+  documents            DocumentGenere[]
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 
   @@index([entiteId])
 }
@@ -642,6 +672,165 @@ model Ticket {
   updatedAt     DateTime     @updatedAt
 
   @@index([entiteId])
+}
+
+// ---------------------------------------------------------------------------
+// Candidatures à la location : dossier du candidat, de ses colocataires et de ses cautions
+// ---------------------------------------------------------------------------
+
+enum StatutCandidature {
+  BROUILLON
+  TRANSMISE
+  DEPOSEE
+  ACCEPTEE
+  /// Bail signé : le candidat est devenu locataire.
+  CONCLUE
+  REFUSEE
+  RETIREE
+}
+
+enum RoleDossier {
+  CANDIDAT
+  GARANT
+}
+
+enum SituationCandidat {
+  CDI
+  CDI_ESSAI
+  CDD
+  INTERIM
+  FONCTIONNAIRE
+  INDEPENDANT
+  RETRAITE
+  ETUDIANT
+  ALTERNANT
+  SANS_EMPLOI
+  AUTRE
+}
+
+enum TypeGarantie {
+  AUCUNE
+  PERSONNE_PHYSIQUE
+  PERSONNE_MORALE
+  VISALE
+  ASSURANCE_LOYERS_IMPAYES
+}
+
+enum CategoriePiece {
+  IDENTITE
+  DOMICILE
+  ACTIVITE
+  RESSOURCES
+}
+
+enum StatutPiece {
+  DEPOSEE
+  VALIDEE
+  REFUSEE
+}
+
+/// Candidature à la location d'un lot : elle regroupe le dossier du ou des candidats et celui de leurs cautions.
+model Candidature {
+  id                     Int                  @id @default(autoincrement())
+  entiteId               Int
+  entite                 Entite               @relation(fields: [entiteId], references: [id], onDelete: Restrict)
+  lotId                  Int?
+  lot                    Lot?                 @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  statut                 StatutCandidature    @default(BROUILLON)
+  /// Loyer et charges annoncés au candidat : base du taux d'effort, repris du lot par défaut.
+  loyerAnnonce           Float?
+  chargesAnnonce         Float?
+  dateSouhaitee          DateTime?
+  /// Garantie attendue et assurance loyers impayés souscrite par le bailleur (article 22-1 : pas de cumul).
+  typeGarantie           TypeGarantie?
+  assuranceLoyersImpayes Boolean              @default(false)
+  deposeLe               DateTime?
+  decisionLe             DateTime?
+  motifRefus             String?
+  notes                  String?
+  /// Bail conclu à l'issue de la candidature : sa signature mute les candidats en locataires.
+  bailId                 Int?
+  bail                   Bail?                @relation(fields: [bailId], references: [id], onDelete: SetNull)
+  concluLe               DateTime?
+  dossiers               DossierCandidature[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([entiteId])
+  @@index([lotId])
+}
+
+/// Dossier d'une personne dans une candidature : un candidat (ou colocataire) ou une caution.
+/// Chaque dossier a son propre lien d'accès, pour qu'une caution dépose ses pièces elle-même.
+model DossierCandidature {
+  id                  Int                  @id @default(autoincrement())
+  candidatureId       Int
+  candidature         Candidature          @relation(fields: [candidatureId], references: [id], onDelete: Cascade)
+  role                RoleDossier          @default(CANDIDAT)
+  /// Pour une caution : le candidat cautionné.
+  garantDeId          Int?
+  garantDe            DossierCandidature?  @relation("Cautions", fields: [garantDeId], references: [id], onDelete: Cascade)
+  cautions            DossierCandidature[] @relation("Cautions")
+  /// Caution personne morale (employeur, organisme) : identifiée par sa raison sociale.
+  personneMorale      Boolean              @default(false)
+  civilite            String?
+  nom                 String
+  prenom              String?
+  raisonSociale       String?
+  dateNaissance       DateTime?
+  lieuNaissance       String?
+  email               String?
+  telephone           String?
+  adresse             String?
+  complementAdresse   String?
+  codePostal          String?
+  ville               String?
+  situation           SituationCandidat?
+  employeur           String?
+  poste               String?
+  depuisLe            DateTime?
+  finContratLe        DateTime?
+  /// Revenus mensuels nets déclarés, hors et avec autres revenus (pensions, allocations, revenus fonciers).
+  revenuMensuel       Float?
+  autresRevenus       Float?
+  detailAutresRevenus String?
+  chargesMensuelles   Float?
+  /// Locataire créé lors de la préparation du bail : la signature du bail achève la mutation.
+  locataireId         Int?
+  locataire           Locataire?           @relation(fields: [locataireId], references: [id], onDelete: SetNull)
+  /// Le dossier est déclaré complet par la personne qui l'a rempli.
+  complet             Boolean              @default(false)
+  /// Lien d'accès personnel au dossier.
+  accesJeton          String?              @unique
+  accesCreeLe         DateTime?
+  accesEnvoyeLe       DateTime?
+  accesDernierLe      DateTime?
+  pieces              PieceCandidature[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([candidatureId])
+  @@index([garantDeId])
+}
+
+/// Justificatif déposé dans un dossier de candidature. Le code renvoie à la liste limitative
+/// du décret n° 2015-1437 du 5 novembre 2015 ; plusieurs fichiers peuvent porter le même code.
+model PieceCandidature {
+  id         Int                @id @default(autoincrement())
+  dossierId  Int
+  dossier    DossierCandidature @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+  categorie  CategoriePiece
+  code       String
+  statut     StatutPiece        @default(DEPOSEE)
+  motifRefus String?
+  nomFichier String
+  chemin     String
+  mimeType   String
+  taille     Int
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([dossierId])
 }
 
 // ---------------------------------------------------------------------------

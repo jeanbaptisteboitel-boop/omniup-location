@@ -15,6 +15,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Les espaces locataire (/espace) et propriétaire (/proprietaire) ont leur propre authentification par jeton d'accès.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|connexion|espace|proprietaire|api/cron/|api/espace/|api/proprietaire/).*)"],
+  // Les espaces locataire (/espace), propriétaire (/proprietaire) et candidat (/candidature) ont leur propre
+  // authentification par jeton d'accès. « candidature » est suivi d'une barre ou de la fin de chemin pour ne pas
+  // libérer /candidatures, qui reste la page protégée du gestionnaire.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|connexion|espace|proprietaire|candidature(?:/|$)|api/cron/|api/espace/|api/proprietaire/|api/candidature/).*)"],
 };

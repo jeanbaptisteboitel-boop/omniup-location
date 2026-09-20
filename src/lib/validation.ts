@@ -144,6 +144,14 @@ export const zIdOpt = z
 export const zEnum = <const T extends readonly [string, ...string[]]>(valeurs: T) =>
   z.enum(valeurs, { error: "Sélection invalide" });
 
+/** Liste déroulante facultative : un choix vide vaut « non renseigné » et n'est pas une erreur. */
+export const zEnumOpt = <const T extends readonly [string, ...string[]]>(valeurs: T) =>
+  z
+    .string()
+    .transform((v) => v.trim())
+    .pipe(z.union([z.literal(""), z.enum(valeurs, { error: "Sélection invalide" })]))
+    .transform((v) => (v === "" ? null : (v as T[number])));
+
 /**
  * Lit les champs d'un FormData selon un schéma zod (champs absents = chaîne vide)
  * et renvoie soit les données typées, soit la première erreur par champ.

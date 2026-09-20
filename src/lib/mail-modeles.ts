@@ -149,6 +149,60 @@ export function emailTicket(
   return { objet: `[${nature}] ${t.objet}`, corps: lignes.join("\n") };
 }
 
+/** Lien d'accès au dossier de candidature : envoyé au candidat, à un colocataire ou à une caution. */
+export function emailAccesCandidature(
+  d: { civilite: string | null; nom: string; prenom: string | null; raisonSociale: string | null; personneMorale: boolean; role: "CANDIDAT" | "GARANT" },
+  candidature: { loyerAnnonce: number | null; chargesAnnonce: number | null },
+  lot: { nom: string; adresse: string; codePostal: string; ville: string } | null,
+  lien: string,
+  expediteur: string | null,
+): { objet: string; corps: string } {
+  const caution = d.role === "GARANT";
+  const loyer = (candidature.loyerAnnonce ?? 0) + (candidature.chargesAnnonce ?? 0);
+  const lignes = [
+    `Bonjour ${d.personneMorale ? (d.raisonSociale ?? d.nom) : formuleAppel([d])},`,
+    "",
+    caution
+      ? "Vous avez été désigné comme caution pour une candidature à la location. Pour que le dossier soit complet, merci de renseigner vos informations et de déposer vos justificatifs depuis votre espace personnel."
+      : "Votre dossier de candidature à la location est ouvert. Renseignez vos informations, déposez vos justificatifs et remettez votre dossier depuis votre espace personnel.",
+    ...(lot ? ["", `Logement concerné : ${lot.nom} — ${adresseSurUneLigne(lot)}`] : []),
+    ...(loyer > 0 ? [`Loyer charges comprises : ${formatEuros(loyer)} par mois`] : []),
+    "",
+    "Pour y accéder, ouvrez ce lien personnel (ne le transmettez à personne) :",
+    lien,
+    "",
+    "Seules les pièces autorisées par le décret du 5 novembre 2015 vous sont demandées. Ne transmettez jamais de relevé de compte bancaire, de carte Vitale ni d'autorisation de prélèvement : ces documents ne peuvent pas être exigés.",
+    "",
+    "Cordialement,",
+    expediteur || "Votre bailleur",
+  ];
+  return { objet: caution ? "Votre dossier de caution" : "Votre dossier de candidature à la location", corps: lignes.join("\n") };
+}
+
+/** Suite donnée à la candidature. */
+export function emailDecisionCandidature(
+  d: { civilite: string | null; nom: string; prenom: string | null; raisonSociale: string | null; personneMorale: boolean },
+  lot: { nom: string; adresse: string; codePostal: string; ville: string } | null,
+  acceptee: boolean,
+  motif: string | null,
+  expediteur: string | null,
+): { objet: string; corps: string } {
+  const logement = lot ? `${lot.nom} — ${adresseSurUneLigne(lot)}` : "le logement";
+  const lignes = [
+    `Bonjour ${d.personneMorale ? (d.raisonSociale ?? d.nom) : formuleAppel([d])},`,
+    "",
+    acceptee
+      ? `Votre candidature pour ${logement} est retenue. Nous revenons vers vous pour organiser la signature du bail et l'état des lieux d'entrée.`
+      : `Votre candidature pour ${logement} n'a pas été retenue.`,
+    ...(!acceptee && motif ? ["", `Motif : ${motif}`] : []),
+    ...(acceptee ? [] : ["", "Les pièces de votre dossier seront détruites une fois le logement attribué. Nous vous remercions de l'intérêt porté à ce bien."]),
+    "",
+    "Cordialement,",
+    expediteur || "Votre bailleur",
+  ];
+  return { objet: acceptee ? "Votre candidature est retenue" : "Suite donnée à votre candidature", corps: lignes.join("\n") };
+}
+
 /** Lien d'accès à l'espace propriétaire (bailleur). */
 export function emailAccesBailleur(b: { nom: string; representant: string | null }, lien: string, expediteur: string | null): { objet: string; corps: string } {
   const lignes = [
